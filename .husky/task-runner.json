@@ -16,6 +16,24 @@
                "cz check --commit-msg-file .git\\COMMIT_EDITMSG"
             ]
          }
+      },
+      {
+         "name": "Linting",
+         "command": "dotnet",
+         "args": [
+            "csharpier",
+            "format",
+            "${staged}"
+         ],
+         "include": [
+            "**/*.cs",
+            "**/*.csx",
+            "**/*.csproj",
+            "**/*.props",
+            "**/*.targets",
+            "**/*.xml",
+            "**/*.config"
+         ]
       }
    ]
 }
