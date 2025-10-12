@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36301.6
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CastorApplication", "CastorApplication\CastorApplication.csproj", "{CFFD342E-AB0C-4B39-96CA-E0BBB08EDB33}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CastorCore", "CastorCore\CastorCore.csproj", "{AD1B94BB-A49C-493D-BD94-758470EBB8B0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{CFFD342E-AB0C-4B39-96CA-E0BBB08EDB33}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CFFD342E-AB0C-4B39-96CA-E0BBB08EDB33}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CFFD342E-AB0C-4B39-96CA-E0BBB08EDB33}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD1B94BB-A49C-493D-BD94-758470EBB8B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD1B94BB-A49C-493D-BD94-758470EBB8B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD1B94BB-A49C-493D-BD94-758470EBB8B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD1B94BB-A49C-493D-BD94-758470EBB8B0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -25,4 +25,7 @@
   <ItemGroup>
     <Folder Include="Models\" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CastorCore\CastorCore.csproj" />
+  </ItemGroup>
 </Project>
