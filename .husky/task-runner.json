@@ -19,6 +19,7 @@
       },
       {
          "name": "Linting",
+         "group": "pre-commit",
          "command": "dotnet",
          "args": [
             "csharpier",
