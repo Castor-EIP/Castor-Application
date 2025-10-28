@@ -76,7 +76,7 @@ namespace CastorCore.Source
             State = SourceState.Stopped;
         }
 
-        public async Task<TFrame?> GetNextFrameAsync(CancellationToken cancellationToken = default)
+        public async Task<TFrame?> ReadFrameAsync(CancellationToken cancellationToken = default)
         {
             if (State != SourceState.Running)
                 return null;

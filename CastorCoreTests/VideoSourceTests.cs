@@ -33,7 +33,7 @@ namespace CastorCoreTests
             testSource.Start();
             Assert.Equal(SourceState.Running, testSource.State);
 
-            VideoFrame? frame = await testSource.GetNextFrameAsync();
+            VideoFrame? frame = await testSource.ReadFrameAsync();
 
             Assert.NotNull(frame);
             Assert.Equal(640, frame.Width);
@@ -88,13 +88,13 @@ namespace CastorCoreTests
 
             Assert.Equal(SourceState.Idle, testSource.State);
 
-            VideoFrame? frame = await testSource.GetNextFrameAsync();
+            VideoFrame? frame = await testSource.ReadFrameAsync();
             Assert.Null(frame);
 
             await testSource.InitializeAsync();
             Assert.Equal(SourceState.Stopped, testSource.State);
 
-            frame = await testSource.GetNextFrameAsync();
+            frame = await testSource.ReadFrameAsync();
             Assert.Null(frame);
         }
 
@@ -114,7 +114,7 @@ namespace CastorCoreTests
 
             for (int i = 0; i < 5; i++)
             {
-                VideoFrame? frame = await testSource.GetNextFrameAsync();
+                VideoFrame? frame = await testSource.ReadFrameAsync();
 
                 Assert.NotNull(frame);
                 Assert.Equal(640, frame.Width);
