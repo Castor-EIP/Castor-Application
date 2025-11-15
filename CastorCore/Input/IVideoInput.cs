@@ -1,13 +1,13 @@
-﻿using CastorCore.Source.Frame;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using FFMpegCore.Pipes;
 
 namespace CastorCore.Input
 {
-    public interface IVideoInput : IMediaInput<VideoFrame>
+    public interface IVideoInput : IDisposable
     {
+        int Width { get; }
+        int Height { get; }
+        string Format { get; } // bgra32, nv12, etc.
+
+        Task<IVideoFrame?> CaptureFrameAsync(CancellationToken token);
     }
 }
