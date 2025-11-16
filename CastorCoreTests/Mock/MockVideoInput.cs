@@ -1,33 +1,57 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 using CastorCore.Input;
-using CastorCore.Source.Frame;
+using FFMpegCore.Pipes;
 
 namespace CastorCoreTests.Mock
 {
     public class MockVideoInput : IVideoInput
     {
-        public Task<bool> InitializeAsync(CancellationToken ct = default)
+        private readonly int _frameDelay;
+        private int _framesCaptured;
+
+        public int Width { get; }
+        public int Height { get; }
+        public string Format { get; } = "bgra32";
+
+        /// <summary>
+        /// Number of frames captured by this input
+        /// </summary>
+        public int FramesCaptured => _framesCaptured;
+
+        public MockVideoInput(int width = 640, int height = 480, int frameDelay = 0)
         {
-            return Task.FromResult(true);
+            Width = width;
+            Height = height;
+            _frameDelay = frameDelay;
         }
 
-        public Task<VideoFrame?> ReadFrameAsync(CancellationToken ct = default)
+        public async Task<IVideoFrame?> CaptureFrameAsync(CancellationToken token)
         {
-            return Task.FromResult<VideoFrame?>(new VideoFrame
+            if (token.IsCancellationRequested)
+                return null;
+
+            // Simulate frame capture delay if specified
+            if (_frameDelay > 0)
             {
-                Width = 640,
-                Height = 480,
-                Data = new byte[640 * 480 * 4]
-            });
+                await Task.Delay(_frameDelay, token);
+            }
+
+            // Create a test frame with dummy data
+            MockVideoFrame frame = new MockVideoFrame(Width, Height);
+            
+            _framesCaptured++;
+            
+            return frame;
         }
 
         public void Dispose()
         {
+            // Nothing to dispose in mock
         }
     }
 }
