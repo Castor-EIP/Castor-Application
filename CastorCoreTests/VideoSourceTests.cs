@@ -17,24 +17,26 @@ namespace CastorCoreTests
             VideoSource testSource = new VideoSource(mockInput);
             
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var capturedFrames = new List<IVideoFrame>();
-
-            testSource.FrameReady += (frame) =>
-            {
-                capturedFrames.Add(frame);
-                if (capturedFrames.Count >= 5)
-                {
-                    cts.Cancel();
-                }
-            };
+            List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
 
             // Act
-            await testSource.StartAsync(cts.Token);
+            testSource.Start();
+            
+            while (capturedFrames.Count < 5 && !cts.Token.IsCancellationRequested)
+            {
+                IVideoFrame? frame = await testSource.GetFrameAsync(cts.Token);
+                if (frame != null)
+                {
+                    capturedFrames.Add(frame);
+                }
+            }
+            
+            testSource.Stop();
 
             // Assert
             Assert.True(capturedFrames.Count >= 5, $"Expected at least 5 frames, got {capturedFrames.Count}");
             
-            foreach (var frame in capturedFrames)
+            foreach (IVideoFrame frame in capturedFrames)
             {
                 Assert.Equal(640, frame.Width);
                 Assert.Equal(480, frame.Height);
@@ -64,20 +66,22 @@ namespace CastorCoreTests
             VideoSource testSource = new VideoSource(mockInput);
             
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-            var capturedFrames = new List<IVideoFrame>();
+            List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
             int targetFrames = 10;
 
-            testSource.FrameReady += (frame) =>
-            {
-                capturedFrames.Add(frame);
-                if (capturedFrames.Count >= targetFrames)
-                {
-                    cts.Cancel();
-                }
-            };
-
             // Act
-            await testSource.StartAsync(cts.Token);
+            testSource.Start();
+            
+            while (capturedFrames.Count < targetFrames && !cts.Token.IsCancellationRequested)
+            {
+                IVideoFrame? frame = await testSource.GetFrameAsync(cts.Token);
+                if (frame != null)
+                {
+                    capturedFrames.Add(frame);
+                }
+            }
+            
+            testSource.Stop();
 
             // Assert
             Assert.True(capturedFrames.Count >= targetFrames, $"Expected at least {targetFrames} frames, got {capturedFrames.Count}");
@@ -90,17 +94,35 @@ namespace CastorCoreTests
             MockVideoInput mockInput = new MockVideoInput();
             VideoSource testSource = new VideoSource(mockInput);
             
-            using var cts = new CancellationTokenSource();
-            var task = Task.Run(async () => await testSource.StartAsync(cts.Token));
+            using CancellationTokenSource cts = new CancellationTokenSource();
 
-            // Act - Cancel after 100ms
+            // Act
+            testSource.Start();
+
+            Task task = Task.Run(async () =>
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    await testSource.GetFrameAsync(cts.Token);
+                }
+            });
+
+            // Cancel after 100ms
             await Task.Delay(100);
             cts.Cancel();
+            testSource.Stop();
             
-            // Wait for the task to complete
-            await task;
+            // Wait for the task to complete with cancellation
+            try
+            {
+                await task;
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancellation occurs
+            }
 
-            // Assert - Should complete without throwing
+            // Assert - Should complete without throwing unhandled exception
             Assert.True(true);
         }
     }

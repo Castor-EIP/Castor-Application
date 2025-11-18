@@ -16,17 +16,33 @@ namespace CastorCoreTests
             using var source = new VideoSource(input);
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-            var capturedFrames = new List<IVideoFrame>();
-            source.FrameReady += (frame) =>
-            {
-                capturedFrames.Add(frame);
-                if (capturedFrames.Count >= 30)
-                {
-                    cts.Cancel();
-                }
-            };
+            source.Start();
 
-            await source.StartAsync(cts.Token);
+            List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
+            
+            try
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    var frame = await source.GetFrameAsync(cts.Token);
+                    if (frame != null)
+                    {
+                        capturedFrames.Add(frame);
+                        if (capturedFrames.Count >= 30)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when timeout occurs
+            }
+            finally
+            {
+                source.Stop();
+            }
 
             Assert.True(capturedFrames.Count >= 10, $"Expected at least 10 frames, got {capturedFrames.Count}");
             
@@ -47,24 +63,41 @@ namespace CastorCoreTests
         {
             await Task.Delay(100);
             
-            using var input = new DxgiScreenCapture(0);
-            using var source = new VideoSource(input);
-            using var cts = new CancellationTokenSource();
+            using DxgiScreenCapture input = new DxgiScreenCapture(0);
+            using VideoSource source = new VideoSource(input);
+            using CancellationTokenSource cts = new CancellationTokenSource();
 
-            var capturedFrames = new List<IVideoFrame>();
-            source.FrameReady += (frame) =>
+            source.Start();
+
+            List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
+
+            Task task = Task.Run(async () =>
             {
-                capturedFrames.Add(frame);
-            };
+                try
+                {
+                    while (!cts.Token.IsCancellationRequested)
+                    {
+                        IVideoFrame? frame = await source.GetFrameAsync(cts.Token);
+                        if (frame != null)
+                        {
+                            capturedFrames.Add(frame);
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected
+                }
+            });
 
-            var task = Task.Run(async () => await source.StartAsync(cts.Token));
             await Task.Delay(500);
             cts.Cancel();
             await task;
+            source.Stop();
 
             Assert.True(capturedFrames.Count > 0, "Should have captured at least one frame");
             
-            foreach (var frame in capturedFrames)
+            foreach (IVideoFrame frame in capturedFrames)
             {
                 if (frame is IDisposable disposable)
                 {
@@ -78,28 +111,44 @@ namespace CastorCoreTests
         {
             await Task.Delay(100);
             
-            using var input = new DxgiScreenCapture(0);
-            using var source = new VideoSource(input);
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using DxgiScreenCapture input = new DxgiScreenCapture(0);
+            using VideoSource source = new VideoSource(input);
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
 
-            int eventCount = 0;
-            source.FrameReady += (frame) =>
+            source.Start();
+
+            int frameCount = 0;
+            
+            try
             {
-                eventCount++;
-                if (eventCount >= 5)
+                while (!cts.Token.IsCancellationRequested)
                 {
-                    cts.Cancel();
+                    IVideoFrame? frame = await source.GetFrameAsync(cts.Token);
+                    if (frame != null)
+                    {
+                        frameCount++;
+                        if (frameCount >= 5)
+                        {
+                            break;
+                        }
+                        
+                        if (frame is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
                 }
-                
-                if (frame is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-            };
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when timeout occurs
+            }
+            finally
+            {
+                source.Stop();
+            }
 
-            await source.StartAsync(cts.Token);
-
-            Assert.True(eventCount >= 5, $"Expected at least 5 events, got {eventCount}");
+            Assert.True(frameCount >= 5, $"Expected at least 5 frames, got {frameCount}");
         }
     }
 }
