@@ -8,11 +8,12 @@ using System.Threading.Tasks;
 
 namespace CastorCore.Source
 {
-    public interface ISource
+    public interface IVideoSource : IDisposable
     {
-        public event Action<IVideoFrame>? FrameReady;
+        int Width { get; }
+        int Height { get; }
+        string Name { get; }
 
-        public Task StartAsync(CancellationToken token);
-        public Task StopAsync(CancellationToken token);
+        Task<IVideoFrame?> GetFrameAsync(CancellationToken token);
     }
 }

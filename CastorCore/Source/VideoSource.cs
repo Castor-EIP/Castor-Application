@@ -1,99 +1,90 @@
 ﻿using CastorCore.Input;
 using FFMpegCore.Pipes;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace CastorCore.Source
 {
-    public class VideoSource : ISource, IDisposable
+    public class VideoSource : IVideoSource
     {
         private readonly IVideoInput _input;
+        private IVideoFrame? _currentFrame;
 
-        private readonly object _lock = new();
-        private bool _running = false;
-        private bool _disposed = false;
-        private int _frameCount = 0;
+        private readonly SemaphoreSlim _lock = new(1);
+        private CancellationTokenSource? _captureCts;
+        private Task? _captureTask;
 
-        public event Action<IVideoFrame>? FrameReady;
+        public int Width => _input.Width;
+        public int Height => _input.Height;
+        public string Name { get; init; }
 
-        public VideoSource(IVideoInput input)
+        public VideoSource(IVideoInput input, string name)
         {
             _input = input;
+            Name = name;
         }
 
-        public async Task StartAsync(CancellationToken token)
+        public void Start()
         {
-            lock (_lock)
+            _captureCts = new CancellationTokenSource();
+            _captureTask = Task.Run(async () =>
             {
-                if (_running)
-                    throw new InvalidOperationException("VideoSource is already running.");
-
-                _running = true;
-            }
-
-            DateTime startTime = DateTime.Now;
-
-            while (!token.IsCancellationRequested)
-            {
-                IVideoFrame? frame = null;
-
-                try
+                while (!_captureCts.Token.IsCancellationRequested)
                 {
-                    frame = await _input.CaptureFrameAsync(token);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (Exception)
-                {
-                    continue;
-                }
-
-                if (frame != null)
-                {
-                    _frameCount++;
-
-                    if (_frameCount == 1)
+                    try
                     {
-                        TimeSpan elapsed = DateTime.Now - startTime;
+                        IVideoFrame? frame = await _input.CaptureFrameAsync(_captureCts.Token);
+                        if (frame != null)
+                        {
+                            await _lock.WaitAsync(_captureCts.Token);
+
+                            try
+                            {
+                                _currentFrame = frame;
+                            }
+                            finally
+                            {
+                                _lock.Release();
+                            }
+                        }
                     }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch
+                    {
 
-                    // TODO: apply timestamp injection if needed
-                    FrameReady?.Invoke(frame);
+                    }
                 }
-                else
-                {
-                    // Pas de frame disponible, attendre un peu
-                    await Task.Delay(1, token);
-                }
-            }
+            });
+        }
 
-            lock (_lock)
+        public async Task<IVideoFrame?> GetFrameAsync(CancellationToken token)
+        {
+            await _lock.WaitAsync(token);
+
+            try
             {
-                _running = false;
+                return _currentFrame;
+            }
+            finally
+            {
+                _lock.Release();
             }
         }
 
-        public async Task StopAsync(CancellationToken token)
+        public async void Stop()
         {
-            lock (_lock)
-            {
-                if (!_running)
-                    return;
-            }
-
-            await Task.Yield(); // give a point of cancellation
+            _captureCts?.Cancel();
+            if (_captureTask != null)
+                await _captureTask;
         }
 
         public void Dispose()
         {
-            if (_disposed)
-                return;
-
-            _disposed = true;
+            Stop();
             _input?.Dispose();
+            _lock?.Dispose();
+            _captureCts?.Dispose();
         }
     }
 }
