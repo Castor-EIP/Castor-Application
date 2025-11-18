@@ -14,12 +14,10 @@ namespace CastorCore.Source
 
         public int Width => _input.Width;
         public int Height => _input.Height;
-        public string Name { get; init; }
 
-        public VideoSource(IVideoInput input, string name)
+        public VideoSource(IVideoInput input)
         {
             _input = input;
-            Name = name;
         }
 
         public void Start()

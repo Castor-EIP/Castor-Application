@@ -12,7 +12,6 @@ namespace CastorCore.Source
     {
         int Width { get; }
         int Height { get; }
-        string Name { get; }
 
         Task<IVideoFrame?> GetFrameAsync(CancellationToken token);
     }
