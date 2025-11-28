@@ -1,5 +1,6 @@
 ﻿using CastorCore.Input;
 using FFMpegCore.Pipes;
+using NAudio.Wave;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,6 +24,19 @@ namespace CastorCore.Source
             {
                 yield return sample;
             }
+        }
+
+        public RawAudioPipeSource ToPipeSource()
+        {
+            WaveFormat waveFormat = _input.Device.AudioClient.MixFormat;
+
+            RawAudioPipeSource rawAudioPipeSource = new RawAudioPipeSource(GetAudioSamples())
+            {
+                Channels = (uint)waveFormat.Channels,
+                SampleRate = (uint)waveFormat.SampleRate,
+            };
+
+            return rawAudioPipeSource;
         }
     }
 }

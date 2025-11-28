@@ -18,6 +18,8 @@ namespace CastorCore.Input.Audio
         private int _channels;
         private int _sampleRate;
 
+        public MMDevice Device => _device;
+
         public WasapiAudioCapture(MMDevice device)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
