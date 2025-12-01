@@ -1,4 +1,5 @@
 ﻿using CastorCore.Input.Video;
+using CastorCore.Source.Video.Pipe;
 using FFMpegCore.Pipes;
 
 namespace CastorCore.Source.Video
