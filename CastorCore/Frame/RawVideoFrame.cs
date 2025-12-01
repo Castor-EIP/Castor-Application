@@ -21,7 +21,7 @@ namespace CastorCore.Frame
         public void Serialize(Stream pipe)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(DxgiVideoFrame));
+                throw new ObjectDisposedException(nameof(RawVideoFrame));
             
             if (Data == null || Data.Length == 0)
                 throw new InvalidOperationException("Frame data not initialized. Call CopyFrom() first.");
@@ -32,7 +32,7 @@ namespace CastorCore.Frame
         public async Task SerializeAsync(Stream pipe, CancellationToken token)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(DxgiVideoFrame));
+                throw new ObjectDisposedException(nameof(RawVideoFrame));
             
             if (Data == null || Data.Length == 0)
                 throw new InvalidOperationException("Frame data not initialized. Call CopyFrom() first.");
