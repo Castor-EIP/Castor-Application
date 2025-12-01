@@ -6,6 +6,7 @@ namespace CastorCore.Source.Video
     {
         int Width { get; }
         int Height { get; }
+        double FrameRate { get; }
 
         void StartCapture();
         void StopCapture();

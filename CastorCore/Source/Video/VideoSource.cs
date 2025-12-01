@@ -10,6 +10,7 @@ namespace CastorCore.Source.Video
 
         public int Width => _input.Width;
         public int Height => _input.Height;
+        public double FrameRate => _input.FrameRate;
 
         public VideoSource(IVideoInput input)
         {
