@@ -16,6 +16,9 @@ namespace CastorCore.Source.Video
             _input = input;
         }
 
+        public void StartCapture() => _input.StartCapture();
+        public void StopCapture() => _input.StopCapture();
+
         public IEnumerable<IVideoFrame> GetVideoFrames()
         {
             foreach (IVideoFrame sample in _input.PullFrames())
