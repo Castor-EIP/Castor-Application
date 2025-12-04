@@ -1,5 +1,5 @@
-using CastorCore.Input.Screen;
-using CastorCore.Source;
+using CastorCore.Input.Video.Display;
+using CastorCore.Source.Video;
 using FFMpegCore.Pipes;
 
 namespace CastorCoreTests
@@ -8,40 +8,33 @@ namespace CastorCoreTests
     public class VideoSourceWithDxgiTests
     {
         [Fact]
-        public async Task TestVideoSourceWithRealCapture()
+        public void TestVideoSourceWithRealCapture()
         {
-            await Task.Delay(100);
+            Thread.Sleep(100);
             
-            using var input = new DxgiScreenCapture(0);
-            using var source = new VideoSource(input);
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var input = new DxgiDisplayCapture(0);
+            var source = new VideoSource(input);
 
-            source.Start();
+            source.StartCapture();
 
             List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
+            int targetFrames = 30;
             
             try
             {
-                while (!cts.Token.IsCancellationRequested)
+                foreach (var frame in source.GetVideoFrames())
                 {
-                    var frame = await source.GetFrameAsync(cts.Token);
-                    if (frame != null)
+                    capturedFrames.Add(frame);
+                    
+                    if (capturedFrames.Count >= targetFrames)
                     {
-                        capturedFrames.Add(frame);
-                        if (capturedFrames.Count >= 30)
-                        {
-                            break;
-                        }
+                        break;
                     }
                 }
             }
-            catch (OperationCanceledException)
-            {
-                // Expected when timeout occurs
-            }
             finally
             {
-                source.Stop();
+                source.StopCapture();
             }
 
             Assert.True(capturedFrames.Count >= 10, $"Expected at least 10 frames, got {capturedFrames.Count}");
@@ -59,42 +52,35 @@ namespace CastorCoreTests
         }
 
         [Fact]
-        public async Task TestVideoSourceStopsCleanly()
+        public void TestVideoSourceStopsCleanly()
         {
-            await Task.Delay(100);
+            Thread.Sleep(100);
             
-            using DxgiScreenCapture input = new DxgiScreenCapture(0);
-            using VideoSource source = new VideoSource(input);
-            using CancellationTokenSource cts = new CancellationTokenSource();
+            using DxgiDisplayCapture input = new DxgiDisplayCapture(0);
+            VideoSource source = new VideoSource(input);
 
-            source.Start();
+            source.StartCapture();
 
             List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
 
-            Task task = Task.Run(async () =>
+            Task task = Task.Run(() =>
             {
-                try
+                foreach (IVideoFrame frame in source.GetVideoFrames())
                 {
-                    while (!cts.Token.IsCancellationRequested)
+                    capturedFrames.Add(frame);
+                    
+                    if (capturedFrames.Count >= 5)
                     {
-                        IVideoFrame? frame = await source.GetFrameAsync(cts.Token);
-                        if (frame != null)
-                        {
-                            capturedFrames.Add(frame);
-                        }
+                        break;
                     }
-                }
-                catch (OperationCanceledException)
-                {
-                    // Expected
                 }
             });
 
-            await Task.Delay(500);
-            cts.Cancel();
-            await task;
-            source.Stop();
+            // Wait for some frames to be captured
+            bool completed = task.Wait(TimeSpan.FromSeconds(5));
+            source.StopCapture();
 
+            Assert.True(completed, "Capture task should complete");
             Assert.True(capturedFrames.Count > 0, "Should have captured at least one frame");
             
             foreach (IVideoFrame frame in capturedFrames)
@@ -107,48 +93,82 @@ namespace CastorCoreTests
         }
 
         [Fact]
-        public async Task TestVideoSourceEventFiring()
+        public void TestVideoSourceFrameCapture()
         {
-            await Task.Delay(100);
+            Thread.Sleep(100);
             
-            using DxgiScreenCapture input = new DxgiScreenCapture(0);
-            using VideoSource source = new VideoSource(input);
-            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using DxgiDisplayCapture input = new DxgiDisplayCapture(0);
+            VideoSource source = new VideoSource(input);
 
-            source.Start();
+            source.StartCapture();
 
             int frameCount = 0;
+            int targetFrames = 60;
             
             try
             {
-                while (!cts.Token.IsCancellationRequested)
+                foreach (IVideoFrame frame in source.GetVideoFrames())
                 {
-                    IVideoFrame? frame = await source.GetFrameAsync(cts.Token);
-                    if (frame != null)
+                    frameCount++;
+                    
+                    Assert.Equal(input.Width, frame.Width);
+                    Assert.Equal(input.Height, frame.Height);
+                    Assert.Equal("bgra32", frame.Format);
+                    
+                    if (frame is IDisposable disposable)
                     {
-                        frameCount++;
-                        if (frameCount >= 5)
-                        {
-                            break;
-                        }
-                        
-                        if (frame is IDisposable disposable)
-                        {
-                            disposable.Dispose();
-                        }
+                        disposable.Dispose();
+                    }
+                    
+                    if (frameCount >= targetFrames)
+                    {
+                        break;
                     }
                 }
             }
-            catch (OperationCanceledException)
-            {
-                // Expected when timeout occurs
-            }
             finally
             {
-                source.Stop();
+                source.StopCapture();
             }
 
-            Assert.True(frameCount >= 5, $"Expected at least 5 frames, got {frameCount}");
+            Assert.True(frameCount >= targetFrames, $"Expected at least {targetFrames} frames, got {frameCount}");
+        }
+
+        [Fact]
+        public void TestVideoSourceProperties()
+        {
+            Thread.Sleep(100);
+            
+            using DxgiDisplayCapture input = new DxgiDisplayCapture(0);
+            VideoSource source = new VideoSource(input);
+
+            // Assert - Verify properties are correctly exposed
+            Assert.True(source.Width > 0, "Width should be greater than 0");
+            Assert.True(source.Height > 0, "Height should be greater than 0");
+            Assert.Equal(60.0, source.FrameRate);
+            Assert.Equal(input.Width, source.Width);
+            Assert.Equal(input.Height, source.Height);
+        }
+
+        [Fact]
+        public void TestVideoSourceToPipeSource()
+        {
+            Thread.Sleep(100);
+            
+            using DxgiDisplayCapture input = new DxgiDisplayCapture(0);
+            VideoSource source = new VideoSource(input);
+
+            // Act
+            var pipeSource = source.ToPipeSource();
+
+            // Assert
+            Assert.NotNull(pipeSource);
+            
+            string args = pipeSource.GetStreamArguments();
+            Assert.Contains("-f rawvideo", args);
+            Assert.Contains("-pix_fmt bgra", args);
+            Assert.Contains($"-video_size {input.Width}x{input.Height}", args);
+            Assert.Contains($"-framerate {input.FrameRate}", args);
         }
     }
 }

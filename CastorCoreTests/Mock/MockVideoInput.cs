@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
-using CastorCore.Input;
+using CastorCore.Input.Video;
 using FFMpegCore.Pipes;
 
 namespace CastorCoreTests.Mock
@@ -13,45 +12,53 @@ namespace CastorCoreTests.Mock
     {
         private readonly int _frameDelay;
         private int _framesCaptured;
+        private volatile bool _isCapturing;
 
         public int Width { get; }
         public int Height { get; }
-        public string Format { get; } = "bgra32";
+        public double FrameRate => 30.0;
 
         /// <summary>
         /// Number of frames captured by this input
         /// </summary>
         public int FramesCaptured => _framesCaptured;
 
-        public MockVideoInput(int width = 640, int height = 480, int frameDelay = 0)
+        public MockVideoInput(int width = 640, int height = 480, int frameDelay = 33)
         {
             Width = width;
             Height = height;
             _frameDelay = frameDelay;
         }
 
-        public async Task<IVideoFrame?> CaptureFrameAsync(CancellationToken token)
+        public void StartCapture()
         {
-            if (token.IsCancellationRequested)
-                return null;
+            _isCapturing = true;
+        }
 
-            // Simulate frame capture delay if specified
-            if (_frameDelay > 0)
+        public void StopCapture()
+        {
+            _isCapturing = false;
+        }
+
+        public IEnumerable<IVideoFrame> PullFrames()
+        {
+            while (_isCapturing)
             {
-                await Task.Delay(_frameDelay, token);
-            }
+                if (_frameDelay > 0)
+                {
+                    Thread.Sleep(_frameDelay);
+                }
 
-            // Create a test frame with dummy data
-            MockVideoFrame frame = new MockVideoFrame(Width, Height);
-            
-            _framesCaptured++;
-            
-            return frame;
+                MockVideoFrame frame = new MockVideoFrame(Width, Height);
+                _framesCaptured++;
+
+                yield return frame;
+            }
         }
 
         public void Dispose()
         {
-            // Nothing to dispose in mock
+            StopCapture();
         }
     }
 }

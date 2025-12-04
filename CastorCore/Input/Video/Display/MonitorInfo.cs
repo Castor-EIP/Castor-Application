@@ -1,4 +1,4 @@
-﻿namespace CastorCore.Input.Screen
+﻿namespace CastorCore.Input.Video.Display
 {
     public class MonitorInfo
     {
