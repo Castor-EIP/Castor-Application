@@ -1,4 +1,4 @@
-using CastorCore.Source;
+using CastorCore.Source.Video;
 using CastorCoreTests.Mock;
 using FFMpegCore.Pipes;
 using System.Collections.Generic;
@@ -10,37 +10,44 @@ namespace CastorCoreTests.Source.Video
     public class VideoSourceTests
     {
         [Fact]
-        public async Task TestVideoSourceWithMockInput()
+        public void TestVideoSourceWithMockInput()
         {
             // Arrange
             MockVideoInput mockInput = new MockVideoInput();
             VideoSource testSource = new VideoSource(mockInput);
             
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
+            int targetFrames = 5;
 
             // Act
-            testSource.Start();
+            testSource.StartCapture();
             
-            while (capturedFrames.Count < 5 && !cts.Token.IsCancellationRequested)
+            foreach (IVideoFrame frame in testSource.GetVideoFrames())
             {
-                IVideoFrame? frame = await testSource.GetFrameAsync(cts.Token);
-                if (frame != null)
+                capturedFrames.Add(frame);
+                
+                if (capturedFrames.Count >= targetFrames)
                 {
-                    capturedFrames.Add(frame);
+                    break;
                 }
             }
             
-            testSource.Stop();
+            testSource.StopCapture();
 
             // Assert
-            Assert.True(capturedFrames.Count >= 5, $"Expected at least 5 frames, got {capturedFrames.Count}");
+            Assert.True(capturedFrames.Count >= targetFrames, $"Expected at least {targetFrames} frames, got {capturedFrames.Count}");
             
             foreach (IVideoFrame frame in capturedFrames)
             {
                 Assert.Equal(640, frame.Width);
                 Assert.Equal(480, frame.Height);
                 Assert.Equal("bgra32", frame.Format);
+                
+                // Dispose frames after use
+                if (frame is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
         }
 
@@ -52,78 +59,127 @@ namespace CastorCoreTests.Source.Video
             VideoSource testSource = new VideoSource(mockInput);
 
             // Act
-            testSource.Dispose();
+            mockInput.Dispose();
 
             // Assert - Should not throw
             Assert.True(true);
         }
 
         [Fact]
-        public async Task TestVideoSourceMultipleFrames()
+        public void TestVideoSourceMultipleFrames()
         {
             // Arrange
             MockVideoInput mockInput = new MockVideoInput();
             VideoSource testSource = new VideoSource(mockInput);
             
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
             List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
             int targetFrames = 10;
 
             // Act
-            testSource.Start();
+            testSource.StartCapture();
             
-            while (capturedFrames.Count < targetFrames && !cts.Token.IsCancellationRequested)
+            foreach (IVideoFrame frame in testSource.GetVideoFrames())
             {
-                IVideoFrame? frame = await testSource.GetFrameAsync(cts.Token);
-                if (frame != null)
+                capturedFrames.Add(frame);
+                
+                if (capturedFrames.Count >= targetFrames)
                 {
-                    capturedFrames.Add(frame);
+                    break;
                 }
             }
             
-            testSource.Stop();
+            testSource.StopCapture();
 
             // Assert
             Assert.True(capturedFrames.Count >= targetFrames, $"Expected at least {targetFrames} frames, got {capturedFrames.Count}");
+            
+            // Cleanup
+            foreach (IVideoFrame frame in capturedFrames)
+            {
+                if (frame is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
         }
 
         [Fact]
-        public async Task TestVideoSourceStopsOnCancellation()
+        public void TestVideoSourceStopsOnStopCapture()
         {
             // Arrange
             MockVideoInput mockInput = new MockVideoInput();
             VideoSource testSource = new VideoSource(mockInput);
             
-            using CancellationTokenSource cts = new CancellationTokenSource();
+            List<IVideoFrame> capturedFrames = new List<IVideoFrame>();
+            bool enumerationCompleted = false;
 
             // Act
-            testSource.Start();
+            testSource.StartCapture();
 
-            Task task = Task.Run(async () =>
+            Task captureTask = Task.Run(() =>
             {
-                while (!cts.Token.IsCancellationRequested)
+                foreach (IVideoFrame frame in testSource.GetVideoFrames())
                 {
-                    await testSource.GetFrameAsync(cts.Token);
+                    capturedFrames.Add(frame);
+                    
+                    if (capturedFrames.Count >= 3)
+                    {
+                        // Stop capture after a few frames
+                        testSource.StopCapture();
+                    }
                 }
+                enumerationCompleted = true;
             });
 
-            // Cancel after 100ms
-            await Task.Delay(100);
-            cts.Cancel();
-            testSource.Stop();
+            // Wait for completion with timeout
+            bool completed = captureTask.Wait(TimeSpan.FromSeconds(5));
             
-            // Wait for the task to complete with cancellation
-            try
+            // Assert
+            Assert.True(completed, "Capture task should complete within timeout");
+            Assert.True(enumerationCompleted, "Enumeration should complete");
+            Assert.True(capturedFrames.Count >= 3, $"Expected at least 3 frames, got {capturedFrames.Count}");
+            
+            // Cleanup
+            foreach (IVideoFrame frame in capturedFrames)
             {
-                await task;
+                if (frame is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
-            catch (OperationCanceledException)
-            {
-                // Expected when cancellation occurs
-            }
+        }
 
-            // Assert - Should complete without throwing unhandled exception
-            Assert.True(true);
+        [Fact]
+        public void TestVideoSourceProperties()
+        {
+            // Arrange
+            MockVideoInput mockInput = new MockVideoInput(width: 1920, height: 1080);
+            VideoSource testSource = new VideoSource(mockInput);
+
+            // Assert
+            Assert.Equal(1920, testSource.Width);
+            Assert.Equal(1080, testSource.Height);
+            Assert.Equal(30.0, testSource.FrameRate);
+        }
+
+        [Fact]
+        public void TestVideoSourceToPipeSource()
+        {
+            // Arrange
+            MockVideoInput mockInput = new MockVideoInput();
+            VideoSource testSource = new VideoSource(mockInput);
+
+            // Act
+            var pipeSource = testSource.ToPipeSource();
+
+            // Assert
+            Assert.NotNull(pipeSource);
+            
+            string args = pipeSource.GetStreamArguments();
+            Assert.Contains("-f rawvideo", args);
+            Assert.Contains("-pix_fmt bgra", args);
+            Assert.Contains($"-video_size {mockInput.Width}x{mockInput.Height}", args);
+            Assert.Contains($"-framerate {mockInput.FrameRate}", args);
         }
     }
 }
