@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace CastorCoreTests.VideoTests.CaptureTests
+namespace CastorCoreTests.Input.Video
 {
     [CollectionDefinition("DxgiCapture", DisableParallelization = true)]
     public class DxgiCaptureCollection

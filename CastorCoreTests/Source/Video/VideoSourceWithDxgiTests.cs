@@ -2,7 +2,7 @@ using CastorCore.Input.Screen;
 using CastorCore.Source;
 using FFMpegCore.Pipes;
 
-namespace CastorCoreTests.VideoTests
+namespace CastorCoreTests.Source.Video
 {
     [Collection("DxgiCapture")]
     public class VideoSourceWithDxgiTests
