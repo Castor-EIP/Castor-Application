@@ -15,7 +15,7 @@ namespace CastorCore.Input.Audio
         private readonly IAudioConverter _converter;
         private WasapiCapture? _capture;
 
-        private readonly ConcurrentQueue<IAudioSample> _queue = new();
+        private readonly ConcurrentQueue<AudioSample> _queue = new();
         private volatile bool _isRecording;
 
         private int _channels;
@@ -141,7 +141,7 @@ namespace CastorCore.Input.Audio
         {
             while (_isRecording || !_queue.IsEmpty)
             {
-                if (_queue.TryDequeue(out var sample))
+                if (_queue.TryDequeue(out AudioSample? sample))
                 {
                     yield return sample;
                 }
