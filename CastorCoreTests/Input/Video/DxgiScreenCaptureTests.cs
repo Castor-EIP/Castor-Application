@@ -5,15 +5,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace CastorCoreTests
+namespace CastorCoreTests.Input.Video
 {
-    // Collection to enforce sequential execution of DXGI tests
     [CollectionDefinition("DxgiCapture", DisableParallelization = true)]
     public class DxgiCaptureCollection
     {
     }
 
-    // Disable parallel execution to avoid DXGI conflicts
     [Collection("DxgiCapture")]
     public class DxgiScreenCaptureTests
     {

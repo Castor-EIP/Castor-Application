@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace CastorCoreTests
+namespace CastorCoreTests.Source.Video
 {
     public class VideoSourceTests
     {
