@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace CastorApplication.Views;
 
-public partial class MainWindow : Window
+public partial class StudioView : UserControl
 {
-    public MainWindow()
+    public StudioView()
     {
         InitializeComponent();
     }

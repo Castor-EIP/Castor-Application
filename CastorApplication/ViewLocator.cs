@@ -1,9 +1,9 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using CastorAppBase.ViewModels;
+using CastorApplication.ViewModels;
 
-namespace CastorAppBase
+namespace CastorApplication
 {
     public class ViewLocator : IDataTemplate
     {

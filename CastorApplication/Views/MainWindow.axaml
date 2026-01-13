@@ -1,20 +1,62 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:CastorAppBase.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        x:Class="CastorAppBase.Views.MainWindow"
+        xmlns:vm="using:CastorApplication.ViewModels"
+        x:Class="CastorApplication.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="CastorAppBase">
+        Title="Castor Studio"
+        Background="#121212"
+        Foreground="White"
+        Width="1920" Height="1000"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Assets/castor.png">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Window.Styles>
+        <Style Selector="Button.nav">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="15,0"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        
+        <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2d2d2d"/>
+            <Setter Property="Foreground" Value="#3498db"/>
+        </Style>
+    </Window.Styles>
 
+    <Grid RowDefinitions="40, *">
+        <Border Grid.Row="0" Background="#1e1e1e" BorderBrush="#333333" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                   <Image Margin="60,0,0,0" Height="0" Width="0" 
+                          Source="avares://CastorApplication/Assets/castor.png"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Classes="nav" Content="STUDIO" Command="{Binding ShowStudioCommand}"/>
+                    <Button Classes="nav" Content="MULTICAM" Command="{Binding ShowMulticamCommand}"/>
+                    <Button Classes="nav" Content="SCENES" Command="{Binding ShowScenesCommand}"/>
+                    <Button Classes="nav" Content="PARAMETRES" Command="{Binding ShowSettingsCommand}"/>
+                </StackPanel>
+                
+                <TextBlock Grid.Column="2" Text="ACCOUNT" VerticalAlignment="Center" Margin="20,0" Foreground="#666666"/>
+            </Grid>
+        </Border>
+
+        <ContentControl Grid.Row="1" Content="{Binding CurrentPage}" Margin="10">
+        </ContentControl>
+    </Grid>
 </Window>
