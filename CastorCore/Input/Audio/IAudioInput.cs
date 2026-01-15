@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CastorCore.Input
+namespace CastorCore.Input.Audio
 {
     public interface IAudioInput
     {

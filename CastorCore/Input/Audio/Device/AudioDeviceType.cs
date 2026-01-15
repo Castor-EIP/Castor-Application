@@ -1,4 +1,4 @@
-﻿namespace CastorCore.Input
+﻿namespace CastorCore.Input.Audio.Device
 {
     public enum AudioDeviceType
     {

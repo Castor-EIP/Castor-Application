@@ -193,7 +193,7 @@ namespace CastorCore.Input.Video.Display
                         byte[] duplicatedData = new byte[lastFrameData.Length];
                         Array.Copy(lastFrameData, duplicatedData, lastFrameData.Length);
 
-                        IVideoFrame duplicatedFrame = new RawVideoFrame(Width, Height, duplicatedData);
+                        IVideoFrame duplicatedFrame = new RawVideoFrame(MediaTimestamp.Now(), Width, Height, duplicatedData);
                         framesDuplicated++;
 
                         if (_queue.Count < MAX_QUEUE_SIZE)
@@ -288,7 +288,7 @@ namespace CastorCore.Input.Video.Display
 
             _context.Unmap(_staging!, 0);
 
-            return new RawVideoFrame(Width, Height, buffer);
+            return new RawVideoFrame(MediaTimestamp.Now(), Width, Height, buffer);
         }
 
         public void Dispose()

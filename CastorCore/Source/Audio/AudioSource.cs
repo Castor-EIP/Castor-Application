@@ -1,13 +1,8 @@
-﻿using CastorCore.Input;
+﻿using CastorCore.Input.Audio;
 using FFMpegCore.Pipes;
 using NAudio.Wave;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace CastorCore.Source
+namespace CastorCore.Source.Audio
 {
     public class AudioSource : IAudioSource
     {
@@ -18,6 +13,9 @@ namespace CastorCore.Source
             _input = input;
         }
 
+        public void StartCapture() => _input.StartCapture();
+        public void StopCapture() => _input.StopCapture();
+
         public IEnumerator<IAudioSample> GetAudioSamples()
         {
             foreach (IAudioSample sample in _input.PullSamples())
@@ -26,11 +24,11 @@ namespace CastorCore.Source
             }
         }
 
-        public RawAudioPipeSource ToPipeSource()
+        public IPipeSource ToPipeSource()
         {
             WaveFormat waveFormat = _input.Device.AudioClient.MixFormat;
 
-            RawAudioPipeSource rawAudioPipeSource = new RawAudioPipeSource(GetAudioSamples())
+            IPipeSource rawAudioPipeSource = new RawAudioPipeSource(GetAudioSamples())
             {
                 Channels = (uint)waveFormat.Channels,
                 SampleRate = (uint)waveFormat.SampleRate,
