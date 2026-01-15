@@ -1,4 +1,4 @@
-﻿namespace CastorCore.Input.Audio
+﻿namespace CastorCore.Input.Audio.Device
 {
     public class AudioDeviceInfo
     {

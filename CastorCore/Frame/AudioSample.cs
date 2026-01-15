@@ -13,14 +13,18 @@ namespace CastorCore.Frame
         public int Channels { get; }
         public int SampleRate { get; }
         public int SampleCount => Data.Length / (Channels * 2); // Assuming 16-bit
-        public TimeSpan Timestamp { get; }
+        public MediaTimestamp Timestamp { get; }
+
+        public int Width => 0;
+        public int Height => 0;
+        public string Format => "s16le";
 
         public AudioSample(byte[] data, int channels, int sampleRate)
-            : this(data, channels, sampleRate, TimeSpan.Zero)
+            : this(data, channels, sampleRate, MediaTimestamp.Zero)
         {
         }
 
-        public AudioSample(byte[] data, int channels, int sampleRate, TimeSpan timestamp)
+        public AudioSample(byte[] data, int channels, int sampleRate, MediaTimestamp timestamp)
         {
             Data = data;
             Channels = channels;
@@ -37,9 +41,5 @@ namespace CastorCore.Frame
         {
             await stream.WriteAsync(Data, token);
         }
-
-        public int Width => 0;
-        public int Height => 0;
-        public string Format => "audio";
     }
 }

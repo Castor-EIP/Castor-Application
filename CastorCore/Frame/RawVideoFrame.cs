@@ -6,13 +6,15 @@ namespace CastorCore.Frame
     {
         private bool _disposed = false;
 
+        public MediaTimestamp Timestamp { get; }
         public int Width { get; }
         public int Height { get; }
         public string Format => "bgra32";
         public byte[] Data { get; private set; }
 
-        public RawVideoFrame(int width, int height, byte[] data)
+        public RawVideoFrame(MediaTimestamp ts, int width, int height, byte[] data)
         {
+            Timestamp = ts;
             Width = width;
             Height = height;
             Data = data;
@@ -42,7 +44,7 @@ namespace CastorCore.Frame
 
         public void Dispose()
         {
-            if (_disposed)
+            if (!_disposed)
                 return;
 
             _disposed = true;

@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CastorCore.Input.Audio
+namespace CastorCore.Input.Audio.Device
 {
     public class AudioDeviceManager
     {
@@ -24,6 +24,16 @@ namespace CastorCore.Input.Audio
             MMDeviceCollection devices = _enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
 
             return devices.ToList();
+        }
+
+        public MMDevice GetDefaultOutputDevice()
+        {
+            return _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+        }
+
+        public MMDevice GetDefaultInputDevice()
+        {
+            return _enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Console);
         }
 
         public IReadOnlyList<AudioDeviceInfo> GetInputDevicesInfo()

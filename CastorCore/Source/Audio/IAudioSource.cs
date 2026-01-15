@@ -1,10 +1,13 @@
 ﻿using FFMpegCore.Pipes;
 
-namespace CastorCore.Source
+namespace CastorCore.Source.Audio
 {
     public interface IAudioSource
     {
+        void StartCapture();
+        void StopCapture();
+
         IEnumerator<IAudioSample> GetAudioSamples();
-        RawAudioPipeSource ToPipeSource();
+        IPipeSource ToPipeSource();
     }
 }
