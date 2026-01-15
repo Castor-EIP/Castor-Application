@@ -6,13 +6,16 @@ namespace CastorCore.Encoder
     public class Mp4Encoder
     {
         private readonly IPipeSource _videoPipe;
-        //private readonly IPipeSource _audioPipe;
+        private readonly IPipeSource _audioPipe;
+
         private readonly string _outputPath;
         private readonly double _frameRate;
 
-        public Mp4Encoder(IPipeSource videoPipe, string outputPath, double frameRate = 60.0)
+        public Mp4Encoder(IPipeSource videoPipe, IPipeSource audioPipe, string outputPath, double frameRate = 60.0)
         {
             _videoPipe = videoPipe ?? throw new ArgumentNullException(nameof(videoPipe));
+            _audioPipe = audioPipe ?? throw new ArgumentNullException(nameof(videoPipe));
+
             _outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
             _frameRate = frameRate;
         }
@@ -22,7 +25,8 @@ namespace CastorCore.Encoder
             Console.WriteLine($"[Encoder] Starting FFmpeg with framerate: {_frameRate}");
 
             await FFMpegArguments
-                .FromPipeInput(_videoPipe)
+                .FromPipeInput(_audioPipe)
+                .AddPipeInput(_videoPipe)
                 .OutputToFile(_outputPath, overwrite: true, options => options
                     .WithVideoCodec("libx264")
                     .WithAudioCodec("aac")
