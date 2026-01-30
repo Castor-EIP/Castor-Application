@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace CastorApplication.Views;
 
-public partial class MainWindow : Window
+public partial class MulticamView: UserControl
 {
-    public MainWindow()
+    public MulticamView()
     {
         InitializeComponent();
     }

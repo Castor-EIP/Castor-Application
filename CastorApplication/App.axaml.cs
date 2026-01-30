@@ -4,10 +4,10 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
-using CastorAppBase.ViewModels;
-using CastorAppBase.Views;
+using CastorApplication.ViewModels;
+using CastorApplication.Views;
 
-namespace CastorAppBase
+namespace CastorApplication
 {
     public partial class App : Application
     {
