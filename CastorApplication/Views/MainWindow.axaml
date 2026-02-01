@@ -8,6 +8,7 @@
         Foreground="White"
         Width="1920" Height="1000"
         WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         Icon="/Assets/castor.png">
 
     <Design.DataContext>
