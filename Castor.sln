@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CastorApplication", "Castor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CastorCore", "CastorCore\CastorCore.csproj", "{AD1B94BB-A49C-493D-BD94-758470EBB8B0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CastorCoreTests", "CastorCoreTests\CastorCoreTests.csproj", "{16922174-E49C-4A63-8455-9A5608EBD292}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{AD1B94BB-A49C-493D-BD94-758470EBB8B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AD1B94BB-A49C-493D-BD94-758470EBB8B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AD1B94BB-A49C-493D-BD94-758470EBB8B0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{16922174-E49C-4A63-8455-9A5608EBD292}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{16922174-E49C-4A63-8455-9A5608EBD292}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{16922174-E49C-4A63-8455-9A5608EBD292}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{16922174-E49C-4A63-8455-9A5608EBD292}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
