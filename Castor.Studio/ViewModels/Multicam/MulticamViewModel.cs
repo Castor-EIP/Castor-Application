@@ -145,18 +145,30 @@ public partial class MulticamViewModel : ViewModelBase
     [RelayCommand]
     private void RefreshTiles()
     {
-        // Ticks survive a rebuild: a scene added elsewhere must not silently
-        // drop what the operator had already picked for the AI.
-        var selectedIds = Tiles.Where(tile => tile.IsSelected).Select(tile => tile.Scene.Id).ToHashSet();
         var (width, height) = CurrentBaseCanvas();
 
-        Tiles.Clear();
-        foreach (var scene in Scenes)
+        // Reconciled in place rather than rebuilt: clearing the collection would
+        // tear down and restart every native preview on the page each time one
+        // scene is added, removed or moved. It also means a tile keeps whatever
+        // the operator had set on it - its AI tick above all.
+        for (var index = Tiles.Count - 1; index >= 0; index--)
         {
-            Tiles.Add(new MulticamSceneTile(scene, _workspace, _previewRuntime, width, height)
+            if (!Scenes.Contains(Tiles[index].Scene)) Tiles.RemoveAt(index);
+        }
+
+        for (var index = 0; index < Scenes.Count; index++)
+        {
+            var scene = Scenes[index];
+            var existing = Tiles.FirstOrDefault(tile => tile.Scene == scene);
+
+            if (existing == null)
             {
-                IsSelected = selectedIds.Contains(scene.Id),
-            });
+                Tiles.Insert(index, new MulticamSceneTile(scene, _workspace, _previewRuntime, width, height));
+                continue;
+            }
+
+            var current = Tiles.IndexOf(existing);
+            if (current != index) Tiles.Move(current, index);
         }
 
         // A scene that has left the workspace can no longer be the AI's pick.

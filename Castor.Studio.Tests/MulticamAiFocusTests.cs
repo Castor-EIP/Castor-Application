@@ -116,4 +116,52 @@ public sealed class MulticamAiFocusTests
         Assert.False(wantedTile.IsOnAir);
         Assert.True(wantedTile.IsAiSelected);
     }
+    [Fact]
+    public void An_existing_tile_survives_another_scene_being_added()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(workspace);
+        workspace.CreateScene("Plateau");
+        var firstTile = viewModel.Tiles.Single();
+        firstTile.IsSelected = true;
+
+        workspace.CreateScene("Caméra");
+
+        // Rebuilding the collection here would restart every native preview on the
+        // page, and lose whatever the operator had set on the tile.
+        Assert.Same(firstTile, viewModel.Tiles[0]);
+        Assert.True(viewModel.Tiles[0].IsSelected);
+        Assert.Equal(2, viewModel.Tiles.Count);
+    }
+
+    [Fact]
+    public void Tiles_follow_the_order_of_the_scenes()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(workspace);
+        var first = workspace.CreateScene("Plateau");
+        var second = workspace.CreateScene("Caméra");
+        var firstTile = viewModel.Tiles[0];
+
+        workspace.Scenes.Move(0, 1);
+
+        Assert.Equal([second, first], viewModel.Tiles.Select(tile => tile.Scene));
+        // Moved, not rebuilt: the preview behind it keeps running.
+        Assert.Same(firstTile, viewModel.Tiles[1]);
+    }
+
+    [Fact]
+    public void A_removed_scene_drops_its_tile_and_leaves_the_others()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(workspace);
+        var first = workspace.CreateScene("Plateau");
+        workspace.CreateScene("Caméra");
+        var secondTile = viewModel.Tiles[1];
+
+        workspace.DeleteScene(first);
+
+        Assert.Same(secondTile, Assert.Single(viewModel.Tiles));
+    }
+
 }
