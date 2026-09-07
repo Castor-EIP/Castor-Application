@@ -58,16 +58,24 @@ public sealed class ScenesViewModelRuntimeTests
     }
 
     [Fact]
-    public void Creating_another_scene_selects_it_and_makes_it_active()
+    public void Creating_or_selecting_a_scene_does_not_disturb_what_is_on_air()
     {
         var workspace = new StudioWorkspaceViewModel();
         var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
-        CreateScene(viewModel, "Première");
+        var onAir = CreateScene(viewModel, "Première");
 
+        // Creating a second scene only selects it for editing here; the first one, already
+        // on air, is not this page's to reassign.
         var second = CreateScene(viewModel, "Deuxième");
-
         Assert.Same(second, viewModel.SelectedScene);
-        Assert.Same(second, workspace.ActiveScene);
+        Assert.Same(onAir, workspace.ActiveScene);
+
+        // Browsing back to it - e.g. to adjust it mid-recording - must not touch ActiveScene
+        // either.
+        workspace.SetRecordingState(true);
+        viewModel.SelectSceneCommand.Execute(onAir);
+        Assert.Same(onAir, viewModel.SelectedScene);
+        Assert.Same(onAir, workspace.ActiveScene);
     }
 
     [Fact]
@@ -129,12 +137,15 @@ public sealed class ScenesViewModelRuntimeTests
         var first = CreateScene(viewModel, "Première");
         var second = CreateScene(viewModel, "Deuxième");
         viewModel.SelectSceneCommand.Execute(second);
+        // Selecting "second" for editing never moved ActiveScene off "first" - see
+        // Creating_or_selecting_a_scene_does_not_disturb_what_is_on_air.
 
         runtime.Remove = _ => SceneRuntimeResult.Failure("suppression refusée");
         viewModel.DeleteSceneCommand.Execute(second);
 
         Assert.Equal(2, viewModel.Scenes.Count);
-        Assert.Same(second, workspace.ActiveScene);
+        Assert.Same(second, viewModel.SelectedScene);
+        Assert.Same(first, workspace.ActiveScene);
         Assert.Equal("suppression refusée", viewModel.DeleteSceneError);
 
         runtime.Remove = _ => SceneRuntimeResult.Success();

@@ -499,6 +499,34 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public StudioRuntimeResult SwitchRecordingScene(Guid sceneId)
+    {
+        lock (_gate)
+        {
+            if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            // Nothing running: StartRecordingAsync sets the program channel itself, from
+            // whichever scene is active when the user hits record.
+            if (_recordingOutput == null) return StudioRuntimeResult.Success();
+            if (_recordingSceneId == sceneId) return StudioRuntimeResult.Success();
+            if (!_scenes.TryGetValue(sceneId, out var scene))
+                return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                using (var sceneSource = scene.Source)
+                    Obs.SetOutputSource(0, sceneSource);
+                // Keeps the "scene in use by the recording" guard on the scene actually
+                // being recorded now, so the previous one becomes deletable again.
+                _recordingSceneId = sceneId;
+                return StudioRuntimeResult.Success();
+            }
+            catch (Exception exception)
+            {
+                return StudioRuntimeResult.Failure($"Changement de scène impossible : {exception.Message}");
+            }
+        }
+    }
+
     public async Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken)
     {
         Task<ObsOutputStateChangedEventArgs> stoppedTask;

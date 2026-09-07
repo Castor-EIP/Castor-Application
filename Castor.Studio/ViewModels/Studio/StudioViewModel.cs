@@ -42,8 +42,8 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     // Backs the native preview host in PreviewPaneView.axaml - same engine and same base
-    // resolution tracking as ScenesViewModel. Both pages preview through the one native
-    // display LibObsSceneRuntime hosts, so they always show the same picture.
+    // resolution tracking as ScenesViewModel. Each page gets its own native display, so
+    // this one follows the active scene while the Scenes page follows the one being edited.
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
     [ObservableProperty] private int _baseCanvasWidth = 1920;
@@ -249,12 +249,27 @@ public partial class StudioViewModel : ViewModelBase
         else Dispatcher.UIThread.Post(ApplyState);
     }
 
+    // A scene switch has to reach the running output, not just the preview: the recorded
+    // file renders whatever sits in the OBS program channel. Idle is left alone - starting
+    // a recording points the channel at the active scene anyway.
+    private void ApplyActiveSceneToRecording()
+    {
+        if (!_workspace.IsRecording) return;
+
+        var scene = ActiveScene;
+        if (scene == null) return;
+
+        var result = _recordingRuntime.SwitchRecordingScene(scene.Id);
+        if (!result.IsSuccess) RecordError = result.Message;
+    }
+
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(StudioWorkspaceViewModel.ActiveScene))
         {
             OnPropertyChanged(nameof(ActiveScene));
             NotifyPreviewChanged();
+            ApplyActiveSceneToRecording();
         }
         else if (e.PropertyName is nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))
         {

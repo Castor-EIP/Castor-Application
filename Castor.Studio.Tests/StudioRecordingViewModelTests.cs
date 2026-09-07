@@ -162,6 +162,75 @@ public sealed class StudioRecordingViewModelTests
         }
     }
 
+    [Fact]
+    public async Task Switching_scene_while_recording_re_points_the_output()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+            settingsService.Save(new ApplicationSettings { OutputPath = directory });
+            var workspace = new StudioWorkspaceViewModel();
+            var first = workspace.CreateScene("Plateau");
+            workspace.AddSource(first, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
+            var second = workspace.CreateScene("Caméra");
+            workspace.AddSource(second, new SourceDefinition { Name = "Webcam", Kind = SourceKind.Video });
+            workspace.SelectScene(first);
+            var recordingRuntime = new FakeRecordingRuntime();
+            var viewModel = new StudioViewModel(
+                workspace, new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(), recordingRuntime,
+                new FakeProviderStore(), settingsService);
+
+            // Idle: the output is not running, so a scene switch has nothing to re-point -
+            // starting a recording reads the active scene itself.
+            viewModel.ActiveScene = second;
+            Assert.Empty(recordingRuntime.SwitchedScenes);
+
+            workspace.SelectScene(first);
+            await viewModel.StartRecordingCommand.ExecuteAsync(null);
+            Assert.Equal(first.Id, Assert.IsType<RecordingRequest>(recordingRuntime.Request).SceneId);
+
+            // Recording: the switch has to reach the output, not just the preview.
+            viewModel.ActiveScene = second;
+
+            Assert.Equal([second.Id], recordingRuntime.SwitchedScenes);
+            Assert.Equal("", viewModel.RecordError);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task A_refused_scene_switch_surfaces_the_native_message()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+            settingsService.Save(new ApplicationSettings { OutputPath = directory });
+            var workspace = new StudioWorkspaceViewModel();
+            var first = workspace.CreateScene("Plateau");
+            workspace.AddSource(first, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
+            var second = workspace.CreateScene("Caméra");
+            var recordingRuntime = new FakeRecordingRuntime();
+            var viewModel = new StudioViewModel(
+                workspace, new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(), recordingRuntime,
+                new FakeProviderStore(), settingsService);
+
+            await viewModel.StartRecordingCommand.ExecuteAsync(null);
+            recordingRuntime.SwitchResult = StudioRuntimeResult.Failure("scène refusée");
+            viewModel.ActiveScene = second;
+
+            Assert.Equal("scène refusée", viewModel.RecordError);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static string CreateTemporaryDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), $"castor-viewmodel-{Guid.NewGuid():N}");
@@ -186,6 +255,15 @@ public sealed class StudioRecordingViewModelTests
 
         public Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
+
+        public List<Guid> SwitchedScenes { get; } = [];
+        public StudioRuntimeResult SwitchResult { get; set; } = StudioRuntimeResult.Success();
+
+        public StudioRuntimeResult SwitchRecordingScene(Guid sceneId)
+        {
+            SwitchedScenes.Add(sceneId);
+            return SwitchResult;
+        }
 
         public void RaiseState(bool isRecording, string message = "") =>
             StateChanged?.Invoke(this, new RecordingStateChangedEventArgs(isRecording, message));

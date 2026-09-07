@@ -85,8 +85,8 @@ affichée.
 
 ### Aperçu natif
 
-Le panneau Aperçu affiche la scène active (`StudioWorkspaceViewModel.ActiveScene`, partagée
-avec la page Scènes) via `StudioPreview`, qui héberge un `ObsPreviewHost` : un
+Le panneau Aperçu affiche la scène active (`StudioWorkspaceViewModel.ActiveScene`, celle
+qui part à l'enregistrement) via `StudioPreview`, qui héberge un `ObsPreviewHost` : un
 `NativeControlHost` avec un vrai HWND enfant, sur lequel `LibObsSceneRuntime` dessine
 directement. Il survit au détachement : Dock recycle la vue d'un panneau au lieu de la
 reconstruire, et déplace donc la même instance entre la fenêtre principale et la fenêtre
@@ -99,6 +99,14 @@ temps, chacun avec sa propre surface, y compris quand le panneau Studio est dét
 propre fenêtre. Supprimer une scène ou changer la résolution de base referme les aperçus
 concernés (tous, dans le second cas, puisqu'ils partagent le même canevas OBS) ; chaque
 fenêtre encore ouverte relance alors le sien.
+
+Changer la scène active pendant un enregistrement re-pointe la sortie : le canal programme
+OBS est fixé par `StartRecordingAsync` sur la scène active à ce moment-là, et
+`SwitchRecordingScene` le redirige ensuite, sinon le fichier continuerait sur l'ancienne
+scène pendant que l'aperçu suit la nouvelle. La page Scènes, elle, ne change jamais la scène
+active : y sélectionner une scène ne fait que choisir celle qu'on édite et prévisualise, pour
+ne pas perturber ce qui est en cours de diffusion. Le choix de la scène active reste au
+sélecteur « Scène active » de la page Studio.
 
 Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
 fichiers média, et autorise plusieurs sources dans une scène. L'enregistrement produit
