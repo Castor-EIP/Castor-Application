@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  packages: read
+
+env:
+  NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main
+        shell: pwsh
+        run: |
+          git fetch origin main
+
+          git merge-base --is-ancestor "${{ github.sha }}" "origin/main"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "The tag ${{ github.ref_name }} is not on main."
+          }
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+          source-url: https://nuget.pkg.github.com/Castor-Studio/index.json
+
+      - name: Get version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+          Write-Host "Release version: $version"
+
+      - name: Publish application
+        shell: pwsh
+        run: |
+          dotnet publish Castor-Studio/Castor-Studio.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --output artifacts/publish `
+            -p:Version="$env:VERSION"
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+
+          if (-not (Test-Path $iscc)) {
+            throw "Inno Setup compiler not found at: $iscc"
+          }
+
+          & $iscc `
+            "--define=Version=$env:VERSION" `
+            "installer\Castor-Studio.iss"
+
+      - name: Generate SHA-256 checksum
+        shell: pwsh
+        run: |
+          $installer = "artifacts\installer\Castor-Studio-Setup-$env:VERSION.exe"
+          $checksumFile = "$installer.sha256"
+
+          if (-not (Test-Path $installer)) {
+            throw "Installer not found: $installer"
+          }
+
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
+
+          "$hash  Castor-Studio-Setup-$env:VERSION.exe" |
+            Out-File $checksumFile -Encoding ascii
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-${{ github.ref_name }}
+          path: |
+            artifacts/installer/Castor-Studio-Setup-${{ env.VERSION }}.exe
+            artifacts/installer/Castor-Studio-Setup-${{ env.VERSION }}.exe.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "artifacts\installer\Castor-Studio-Setup-$env:VERSION.exe" `
+            "artifacts\installer\Castor-Studio-Setup-$env:VERSION.exe.sha256" `
+            --title "Castor Studio $env:VERSION" `
+            --generate-notes `
+            --verify-tag
