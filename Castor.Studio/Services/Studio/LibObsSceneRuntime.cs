@@ -177,7 +177,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             ObsSceneItem? item = null;
             try
             {
-                source = CreateNativeSource(request);
+                //source = CreateNativeSource(request);
+                source = ObsSourceFactory.Create(request);
                 item = scene.Add(source);
                 var effectiveName = source.Name;
                 sources.Add(request.SourceId, new NativeSource(
@@ -846,33 +847,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             return new(videos, audio, string.Join(" | ", failures));
         }
     }
-
-    private static ObsSource CreateNativeSource(SourceAddRequest request) => request switch
-    {
-        SourceAddRequest.Video video => video.Option.Type switch
-        {
-            VideoCaptureKind.Monitor => ObsSource.CreateWindowsDisplayCapture(video.RequestedName,
-                new ObsWindowsDisplayCaptureSettings { MonitorId = video.Option.Id }),
-            VideoCaptureKind.Window => ObsSource.CreateWindowsWindowCapture(video.RequestedName,
-                new ObsWindowsWindowCaptureSettings { Window = video.Option.Id }),
-            VideoCaptureKind.Camera => ObsSource.CreateWindowsVideoCaptureDevice(video.RequestedName,
-                new ObsWindowsVideoCaptureDeviceSettings { DeviceId = video.Option.Id }),
-            _ => throw new NotSupportedException($"Le type vidéo '{video.Option.Type}' n'est pas pris en charge.")
-        },
-        SourceAddRequest.Audio audio => audio.Option.Type switch
-        {
-            AudioCaptureKind.LoopbackGlobal or AudioCaptureKind.LoopbackWindow =>
-                ObsSource.CreateWindowsAudioOutputCapture(audio.RequestedName,
-                    new ObsWindowsAudioCaptureSettings { DeviceId = audio.Option.Id }),
-            AudioCaptureKind.Microphone or AudioCaptureKind.CameraMic =>
-                ObsSource.CreateWindowsAudioInputCapture(audio.RequestedName,
-                    new ObsWindowsAudioCaptureSettings { DeviceId = audio.Option.Id }),
-            _ => throw new NotSupportedException($"Le type audio '{audio.Option.Type}' n'est pas pris en charge.")
-        },
-        SourceAddRequest.Media media => ObsSource.CreateMediaSource(media.RequestedName,
-            new ObsMediaSourceSettings { FilePath = media.FilePath, Loop = media.Loop }),
-        _ => throw new NotSupportedException("Ce type de source n'est pas pris en charge.")
-    };
 
     private static void TryEnumerate(string category, Action enumerate, ICollection<string> failures)
     {

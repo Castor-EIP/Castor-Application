@@ -45,6 +45,7 @@ public partial class StudioWorkspaceViewModel : ViewModelBase
     {
         if (!Scenes.Contains(scene) || ActiveScene == scene) return;
         ActiveScene = scene;
+        
     }
 
     public SourceItemViewModel AddSource(SceneItemViewModel scene, SourceDefinition definition)
