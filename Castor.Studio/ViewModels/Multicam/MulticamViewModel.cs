@@ -9,6 +9,8 @@ using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Studio;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CastorApplication.Docking;
+using Dock.Model.Controls;
 
 namespace CastorApplication.ViewModels.Multicam;
 
@@ -63,6 +65,9 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     }
 
     internal void NotifyOnAirChanged() => OnPropertyChanged(nameof(IsOnAir));
+
+    // Lets the tile view act on a drop without holding a reference back to the page.
+    internal void MoveSceneHere(SceneItemViewModel moved) => _workspace.MoveScene(moved, Scene);
 
     // Deliberate, explicit action - unlike selecting a scene on the Scenes page, which
     // must never move what is being broadcast.
@@ -121,6 +126,11 @@ public partial class MulticamViewModel : ViewModelBase
     [ObservableProperty] private int _columnChoice;
     [ObservableProperty] private MulticamLayout _layout = MulticamLayout.Grid;
 
+    private readonly MulticamDockFactory _dockFactory = new();
+
+    /// <summary>The dock tree, only built while the docked layout is showing.</summary>
+    [ObservableProperty] private IRootDock? _dockLayout;
+
     public bool IsGridLayout => Layout == MulticamLayout.Grid;
     public bool IsSpotlightLayout => Layout == MulticamLayout.Spotlight;
 
@@ -168,6 +178,10 @@ public partial class MulticamViewModel : ViewModelBase
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
         if (_settingsService != null)
             _settingsService.SettingsSaved += OnSettingsSaved;
+
+        // Built up front rather than when the mode is picked: DockControl reads its
+        // layout as it attaches, and one handed over later never reaches it.
+        RebuildDockLayout();
     }
 
     [RelayCommand]
@@ -204,6 +218,7 @@ public partial class MulticamViewModel : ViewModelBase
         ApplyAiFocus();
 
         OnPropertyChanged(nameof(HasScenes));
+        RebuildDockLayout();
         OnPropertyChanged(nameof(GridColumns));
     }
 
@@ -267,21 +282,24 @@ public partial class MulticamViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(IsGridLayout));
         OnPropertyChanged(nameof(IsSpotlightLayout));
+        RebuildDockLayout();
     }
 
     /// <summary>
     /// Puts one scene where another sits, reordering the workspace itself so the
     /// order holds on every page rather than only on this one.
     /// </summary>
-    public void MoveScene(SceneItemViewModel moved, SceneItemViewModel target)
+    public void MoveScene(SceneItemViewModel moved, SceneItemViewModel target) =>
+        _workspace.MoveScene(moved, target);
+
+    // Rebuilt from the scenes rather than persisted: there is no saved arrangement to
+    // reconcile against a scene set that changed since, which is what makes a dynamic
+    // dock layout expensive elsewhere.
+    private void RebuildDockLayout()
     {
-        if (ReferenceEquals(moved, target)) return;
-
-        var from = Scenes.IndexOf(moved);
-        var to = Scenes.IndexOf(target);
-        if (from < 0 || to < 0) return;
-
-        Scenes.Move(from, to);
+        var layout = _dockFactory.CreateDisplayLayout(this);
+        _dockFactory.InitLayout(layout);
+        DockLayout = layout;
     }
 
     [RelayCommand]
