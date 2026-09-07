@@ -6,7 +6,59 @@
              x:Class="CastorApplication.Views.Multicam.MulticamDisplayView"
              x:DataType="vm:MulticamViewModel">
 
-	<Panel>
+	<Grid RowDefinitions="Auto, *">
+
+		<!-- Les commandes vivent dans le panneau, pas dans l'en-tête de la page : quand
+		     l'aperçu est sorti dans sa propre fenêtre, le choix du mode doit partir avec
+		     lui, sinon on se retrouve avec un affichage qu'on ne peut plus changer. -->
+		<Border Grid.Row="0" Background="{DynamicResource AppSurface3}"
+                BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
+                Padding="10,7">
+			<Grid ColumnDefinitions="Auto, *, Auto">
+			<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+				<Border Background="{DynamicResource AppBadgeBg}" CornerRadius="6" Padding="3">
+					<StackPanel Orientation="Horizontal" Spacing="2">
+						<Button IsVisible="{Binding IsGridLayout}" Content="GRILLE" Classes="ai-active"/>
+						<Button IsVisible="{Binding !IsGridLayout}" Content="GRILLE"
+                                Command="{Binding UseGridLayoutCommand}" Classes="ai-mode"/>
+						<Button IsVisible="{Binding IsSpotlightLayout}" Content="SPOTLIGHT" Classes="ai-active"/>
+						<Button IsVisible="{Binding !IsSpotlightLayout}" Content="SPOTLIGHT"
+                                Command="{Binding UseSpotlightLayoutCommand}" Classes="ai-mode"/>
+					</StackPanel>
+				</Border>
+
+				<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                            IsVisible="{Binding IsGridLayout}">
+					<TextBlock Text="Colonnes :" VerticalAlignment="Center"
+                               FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+					<ComboBox SelectedIndex="{Binding ColumnChoice}" Width="88"
+                              VerticalAlignment="Center">
+						<ComboBoxItem Content="Auto"/>
+						<ComboBoxItem Content="1"/>
+						<ComboBoxItem Content="2"/>
+						<ComboBoxItem Content="3"/>
+						<ComboBoxItem Content="4"/>
+					</ComboBox>
+				</StackPanel>
+			</StackPanel>
+
+				<Border Grid.Column="1" Background="{DynamicResource AppBadgeBg}" CornerRadius="10"
+                        Padding="8,3" HorizontalAlignment="Left" Margin="10,0,0,0"
+                        VerticalAlignment="Center">
+					<TextBlock Text="{Binding Scenes.Count, StringFormat='{}{0} scènes'}"
+                               FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+				</Border>
+
+				<Button Grid.Column="2" Content="ACTUALISER"
+                        Command="{Binding RefreshTilesCommand}"
+                        Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
+                        BorderThickness="0" Padding="12,6" CornerRadius="6"
+                        FontSize="11" FontWeight="SemiBold"
+                        VerticalAlignment="Center" Cursor="Hand"/>
+			</Grid>
+		</Border>
+
+		<Panel Grid.Row="1">
 <!-- Grille : toutes les scènes à la même taille. -->
 <ItemsControl IsVisible="{Binding IsGridLayout}" ItemsSource="{Binding Tiles}">
 	<ItemsControl.ItemsPanel>
@@ -74,5 +126,6 @@
 		</ItemsControl>
 	</ScrollViewer>
 </Grid>
-	</Panel>
+		</Panel>
+	</Grid>
 </UserControl>

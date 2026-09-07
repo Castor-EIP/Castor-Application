@@ -29,7 +29,7 @@
         <!-- StudioViewModel backs four distinct panes, so these key off the dockable's
              own (marker) type instead of its Context to pick the right pane view. -->
         <DataTemplate DataType="{x:Type docking:MulticamAiTool}"><mcViews:MulticamAiBarView DataContext="{Binding Context}"/></DataTemplate>
-        <DataTemplate DataType="{x:Type docking:MulticamDisplayDocument}"><mcViews:MulticamDisplayView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:MulticamDisplayTool}"><mcViews:MulticamDisplayView DataContext="{Binding Context}"/></DataTemplate>
         <DataTemplate DataType="{x:Type docking:PreviewDocument}"><studioViews:PreviewPaneView DataContext="{Binding Context}"/></DataTemplate>
         <DataTemplate DataType="{x:Type docking:SceneSelectorTool}"><studioViews:SceneSelectorPaneView DataContext="{Binding Context}"/></DataTemplate>
         <DataTemplate DataType="{x:Type docking:StatusTool}"><studioViews:StatusPaneView DataContext="{Binding Context}"/></DataTemplate>

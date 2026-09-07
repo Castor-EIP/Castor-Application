@@ -44,24 +44,23 @@ public sealed class MulticamDockFactory(Func<IHostWindow?>? hostWindowFactory = 
             [AiBarId] = () => context,
         };
 
-        var display = new MulticamDisplayDocument
+        var display = new MulticamDisplayTool
         {
             Id = DisplayId,
-            Title = "Multi-caméras",
+            Title = "Aperçu",
             Context = context,
             CanFloat = true,
             CanClose = false,
         };
 
-        var documentDock = new DocumentDock
+        var displayDock = new ToolDock
         {
             Id = DocumentDockId,
-            Title = "Affichage",
+            Title = "Aperçu",
             VisibleDockables = CreateList<IDockable>(display),
             ActiveDockable = display,
-            CanCreateDocument = false,
             CanClose = false,
-            CanFloat = false,
+            CanFloat = true,
         };
 
         var aiBar = new MulticamAiTool
@@ -90,7 +89,7 @@ public sealed class MulticamDockFactory(Func<IHostWindow?>? hostWindowFactory = 
         {
             Id = "MulticamColumn",
             Orientation = Dock.Model.Core.Orientation.Vertical,
-            VisibleDockables = CreateList<IDockable>(aiDock, new ProportionalDockSplitter(), documentDock),
+            VisibleDockables = CreateList<IDockable>(aiDock, new ProportionalDockSplitter(), displayDock),
         };
 
         return WrapInRoot(column);
