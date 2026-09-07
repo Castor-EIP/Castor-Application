@@ -22,6 +22,19 @@ public partial class StudioPreview : UserControl
     public static readonly StyledProperty<int> BaseCanvasHeightProperty =
         AvaloniaProperty.Register<StudioPreview, int>(nameof(BaseCanvasHeight), 1080);
 
+    /// <summary>
+    /// Whether the scene name is drawn over the picture. Off where the host already
+    /// names the scene, so the name is not written twice on the same tile.
+    /// </summary>
+    public static readonly StyledProperty<bool> ShowSceneNameProperty =
+        AvaloniaProperty.Register<StudioPreview, bool>(nameof(ShowSceneName), true);
+
+    public bool ShowSceneName
+    {
+        get => GetValue(ShowSceneNameProperty);
+        set => SetValue(ShowSceneNameProperty, value);
+    }
+
     public SceneItemViewModel? Scene
     {
         get => GetValue(SceneProperty);

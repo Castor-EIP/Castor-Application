@@ -80,7 +80,7 @@ public sealed class MulticamDockFactory(Func<IHostWindow?>? hostWindowFactory = 
             ActiveDockable = aiBar,
             CanClose = false,
             CanFloat = true,
-            Proportion = 0.14,
+            Proportion = 0.10,
         };
 
         // The controls sit above the display, but as a panel: an operator who wants them

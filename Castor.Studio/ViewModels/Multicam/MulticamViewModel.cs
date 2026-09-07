@@ -43,6 +43,9 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     /// <summary>Whether this is the scene currently going to the output.</summary>
     public bool IsOnAir => ReferenceEquals(_workspace.ActiveScene, Scene);
 
+    /// <summary>Whether the scene has anything to show. Drives the empty state.</summary>
+    public bool HasVideo => StudioWorkspaceViewModel.HasVideoSource(Scene);
+
     public bool IsAiSelected => AiState == MulticamAiState.Selected;
     public bool IsAiConsidered => AiState == MulticamAiState.Considered;
 
@@ -94,6 +97,7 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     private void OnSourcesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(SourceCount));
+        OnPropertyChanged(nameof(HasVideo));
         OnPropertyChanged(nameof(PreviewPlaceholderText));
     }
 }
