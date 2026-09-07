@@ -108,6 +108,12 @@ public sealed class ObsPreviewHost : NativeControlHost
         if (handle == IntPtr.Zero)
             throw new Win32Exception(Marshal.GetLastWin32Error(), "La surface native de preview n'a pas pu être créée.");
 
+        // Both windows: the click falls through mine onto the host Avalonia puts in
+        // between, which would otherwise take it.
+        MakeClickThrough(handle, ref _surfaceProc, ref _previousSurfaceProc);
+        MakeClickThrough(parent.Handle, ref _hostProc, ref _previousHostProc);
+
+        _hostWindow = parent.Handle;
         _nativeHandle = handle;
         // NativeControlHost can create its child after AttachedToVisualTree. Queue
         // one refresh so a scene selected before HWND creation starts immediately.
@@ -115,9 +121,50 @@ public sealed class ObsPreviewHost : NativeControlHost
         return new PlatformHandle(handle, "HWND");
     }
 
+    /// <summary>
+    /// Makes the surface invisible to the mouse, so clicks land on the Avalonia
+    /// content behind it instead of being swallowed.
+    /// </summary>
+    /// <remarks>
+    /// A native child window takes every mouse event over its own rectangle, which left
+    /// the video area dead to clicks and drags. Extended styles do not help on a child
+    /// window - WS_EX_TRANSPARENT and WS_DISABLED were both tried - so the window
+    /// procedure is replaced to answer HTTRANSPARENT to hit tests, which is what tells
+    /// Windows to look behind it. The preview is display-only; revisit this if it ever
+    /// needs input of its own, such as dragging scene items.
+    /// </remarks>
+    private static void MakeClickThrough(IntPtr handle, ref WindowProc? proc, ref IntPtr previous)
+    {
+        if (handle == IntPtr.Zero) return;
+
+        // The delegate is kept alive by the caller's field: Windows holds a raw pointer to
+        // it, and a collected delegate would crash the message loop.
+        var previousProc = IntPtr.Zero;
+        proc = (window, message, wParam, lParam) => message == WindowMessageNcHitTest
+            ? new IntPtr(HitTestTransparent)
+            : CallWindowProc(previousProc, window, message, wParam, lParam);
+
+        previousProc = SetWindowLongPtr(handle, WindowLongWndProc,
+            Marshal.GetFunctionPointerForDelegate(proc));
+        previous = previousProc;
+    }
+
+    // The host window belongs to Avalonia and can outlive this control, so its original
+    // procedure goes back when the surface goes away.
+    private void RestoreHostWindow(IntPtr handle)
+    {
+        if (handle == IntPtr.Zero || _previousHostProc == IntPtr.Zero) return;
+
+        SetWindowLongPtr(handle, WindowLongWndProc, _previousHostProc);
+        _previousHostProc = IntPtr.Zero;
+        _hostProc = null;
+    }
+
     protected override void DestroyNativeControlCore(IPlatformHandle control)
     {
         StopRunningPreview();
+        RestoreHostWindow(_hostWindow);
+        _hostWindow = IntPtr.Zero;
         if (control.Handle != IntPtr.Zero) DestroyWindow(control.Handle);
         _nativeHandle = IntPtr.Zero;
     }
@@ -259,6 +306,25 @@ public sealed class ObsPreviewHost : NativeControlHost
     private const uint WindowStyleClipChildren = 0x02000000;
     private const uint WindowStyleClipSiblings = 0x04000000;
     private const uint StaticStyleBlackRect = 0x00000004;
+    private const int WindowLongWndProc = -4;
+    private const uint WindowMessageNcHitTest = 0x0084;
+    private const int HitTestTransparent = -1;
+
+    private delegate IntPtr WindowProc(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+    private WindowProc? _surfaceProc;
+    private IntPtr _previousSurfaceProc;
+    private WindowProc? _hostProc;
+    private IntPtr _previousHostProc;
+    private IntPtr _hostWindow;
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr(IntPtr window, int index, IntPtr value);
+
+    [DllImport("user32.dll", EntryPoint = "CallWindowProcW")]
+    private static extern IntPtr CallWindowProc(IntPtr previous, IntPtr window, uint message, IntPtr wParam,
+        IntPtr lParam);
+
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr CreateWindowEx(

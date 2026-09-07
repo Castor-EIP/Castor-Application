@@ -6,6 +6,7 @@
              x:DataType="controls:StudioPreview">
     <Panel Background="Black">
         <controls:ObsPreviewHost x:Name="NativePreview"
+                                 IsHitTestVisible="False"
                                  Scene="{Binding #PreviewRoot.Scene}"
                                  Runtime="{Binding #PreviewRoot.PreviewRuntime}"
                                  HorizontalAlignment="Center"
