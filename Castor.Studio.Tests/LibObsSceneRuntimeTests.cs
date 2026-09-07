@@ -8,6 +8,61 @@ namespace Castor.Studio.Tests;
 public sealed class LibObsSceneRuntimeTests
 {
     [Fact]
+    public void Streaming_request_requires_a_twitch_key()
+    {
+        var request = new StreamingRequest(
+            new SceneDefinition(),
+            "",
+            30,
+            6_000,
+            192,
+            48_000,
+            2);
+
+        Assert.Contains("clé de stream Twitch", LibObsSceneRuntime.ValidateStreamingRequest(request));
+    }
+
+    [Theory]
+    [InlineData(0, 6_000, 192, 48_000, 2)]
+    [InlineData(30, 0, 192, 48_000, 2)]
+    [InlineData(30, 6_000, 0, 48_000, 2)]
+    [InlineData(30, 6_000, 192, 0, 2)]
+    [InlineData(30, 6_000, 192, 48_000, 3)]
+    public void Streaming_request_rejects_invalid_media_settings(
+        int fps,
+        int videoBitrate,
+        int audioBitrate,
+        int sampleRate,
+        int channels)
+    {
+        var request = new StreamingRequest(
+            new SceneDefinition(),
+            "live-key",
+            fps,
+            videoBitrate,
+            audioBitrate,
+            sampleRate,
+            channels);
+
+        Assert.NotEmpty(LibObsSceneRuntime.ValidateStreamingRequest(request));
+    }
+
+    [Fact]
+    public void Valid_streaming_request_passes_validation()
+    {
+        var request = new StreamingRequest(
+            new SceneDefinition(),
+            "live-key",
+            30,
+            6_000,
+            192,
+            48_000,
+            2);
+
+        Assert.Empty(LibObsSceneRuntime.ValidateStreamingRequest(request));
+    }
+
+    [Fact]
     public void Recording_video_settings_keep_base_canvas_and_requested_output_resolution()
     {
         var request = new RecordingRequest(

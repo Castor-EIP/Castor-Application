@@ -5,7 +5,7 @@ using LibObs;
 
 namespace CastorApplication.Services.Studio;
 
-internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecordingRuntime, IScenePreviewRuntime, IDisposable
+internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecordingRuntime, IStreamingRuntime, IScenePreviewRuntime, IDisposable
 {
     private const string FfmpegOutputId = "ffmpeg_output";
     private const string LibVpxVp9EncoderName = "libvpx-vp9";
@@ -42,6 +42,14 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _recordingStarted;
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _recordingStopped;
     private bool _recordingStopRequested;
+    private ObsOutput? _streamingOutput;
+    private ObsEncoder? _streamingVideoEncoder;
+    private ObsEncoder? _streamingAudioEncoder;
+    private ObsService? _streamingService;
+    private Guid? _streamingSceneId;
+    private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStarted;
+    private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStopped;
+    private bool _streamingStopRequested;
     private bool _initialized;
     private bool _disposed;
     private string _unavailableMessage = "";
@@ -52,6 +60,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     public string UnavailableMessage => _unavailableMessage;
 
     public event EventHandler<RecordingStateChangedEventArgs>? StateChanged;
+    public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged;
     public event EventHandler? PreviewResetRequested;
 
     public LibObsSceneRuntime(SettingsService? settingsService = null)
@@ -132,6 +141,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         {
             if (_recordingSceneId == sceneId)
                 return SceneRuntimeResult.Failure("Cette scène est utilisée par l'enregistrement en cours.");
+            if (_streamingSceneId == sceneId)
+                return SceneRuntimeResult.Failure("Cette scène est utilisée par le live en cours.");
             if (!_scenes.TryGetValue(sceneId, out var scene))
                 return SceneRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
 
@@ -260,7 +271,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         lock (_gate)
         {
             if (!IsAvailable) return;
-            if (_recordingOutput != null)
+            if (_recordingOutput != null || _streamingOutput != null)
             {
                 _pendingVideoSettings = settings;
                 return;
@@ -437,6 +448,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
             if (_recordingOutput != null)
                 return StudioRuntimeResult.Failure("Un enregistrement est déjà en cours.");
+            if (_streamingOutput != null)
+                return StudioRuntimeResult.Failure("Arrêtez le live avant de démarrer l'enregistrement.");
             if (!_scenes.TryGetValue(request.SceneId, out var scene))
                 return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
             if (!_sources.TryGetValue(request.SceneId, out var sources) ||
@@ -572,6 +585,132 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             : StudioRuntimeResult.Failure(RecordingStopMessage(state));
     }
 
+    public async Task<StudioRuntimeResult> StartStreamingAsync(
+        StreamingRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        Task<ObsOutputStateChangedEventArgs> startedTask;
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            if (_streamingOutput != null)
+                return StudioRuntimeResult.Failure("Un live est déjà en cours.");
+            if (_recordingOutput != null)
+                return StudioRuntimeResult.Failure("Arrêtez l'enregistrement avant de lancer le live.");
+            if (!_scenes.TryGetValue(request.Scene.Id, out var scene))
+                return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
+            if (!_sources.TryGetValue(request.Scene.Id, out var sources) ||
+                !sources.Values.Any(source => source.ProvidesVideo))
+                return StudioRuntimeResult.Failure(
+                    "La scène doit contenir au moins une source vidéo ou média.");
+
+            var validationError = ValidateStreamingRequest(request);
+            if (validationError.Length > 0) return StudioRuntimeResult.Failure(validationError);
+
+            try
+            {
+                ConfigureStreamingMedia(request);
+                using (var sceneSource = scene.Source)
+                    Obs.SetOutputSource(0, sceneSource);
+
+                var resources = CreateStreamingOutput(request);
+                _streamingOutput = resources.Output;
+                _streamingVideoEncoder = resources.VideoEncoder;
+                _streamingAudioEncoder = resources.AudioEncoder;
+                _streamingService = resources.Service;
+                _streamingSceneId = request.Scene.Id;
+                _streamingStarted = NewOutputSignal();
+                _streamingStopped = NewOutputSignal();
+                _streamingOutput.StateChanged += OnStreamingOutputStateChanged;
+                startedTask = _streamingStarted.Task;
+                _streamingOutput.Start();
+            }
+            catch (Exception exception)
+            {
+                ReleaseStreamingResourcesCore();
+                return StudioRuntimeResult.Failure($"Démarrage du live impossible : {exception.Message}");
+            }
+        }
+
+        try
+        {
+            var state = await startedTask.WaitAsync(cancellationToken);
+            return state.State == ObsOutputState.Started
+                ? StudioRuntimeResult.Success()
+                : StudioRuntimeResult.Failure(StreamingStopMessage(state));
+        }
+        catch (OperationCanceledException)
+        {
+            lock (_gate)
+            {
+                try
+                {
+                    _streamingOutput?.ForceStop();
+                }
+                catch
+                {
+                }
+                ReleaseStreamingResourcesCore();
+            }
+            throw;
+        }
+    }
+
+    public async Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken)
+    {
+        Task<ObsOutputStateChangedEventArgs> stoppedTask;
+        ObsOutput output;
+        lock (_gate)
+        {
+            if (_streamingOutput == null || _streamingStopped == null)
+                return StudioRuntimeResult.Success();
+
+            output = _streamingOutput;
+            stoppedTask = _streamingStopped.Task;
+            try
+            {
+                _streamingStopRequested = true;
+                output.Stop();
+            }
+            catch (Exception exception)
+            {
+                _streamingStopRequested = false;
+                return StudioRuntimeResult.Failure($"Arrêt du live impossible : {exception.Message}");
+            }
+        }
+
+        ObsOutputStateChangedEventArgs state;
+        try
+        {
+            state = await stoppedTask.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            lock (_gate)
+            {
+                try
+                {
+                    if (ReferenceEquals(output, _streamingOutput)) output.ForceStop();
+                }
+                catch
+                {
+                }
+                if (ReferenceEquals(output, _streamingOutput)) ReleaseStreamingResourcesCore();
+            }
+            throw;
+        }
+
+        lock (_gate)
+        {
+            if (ReferenceEquals(output, _streamingOutput)) ReleaseStreamingResourcesCore();
+        }
+        return state.StopCode is null or ObsOutputStopCode.Success
+            ? StudioRuntimeResult.Success()
+            : StudioRuntimeResult.Failure(StreamingStopMessage(state));
+    }
+
     public void Dispose()
     {
         lock (_gate)
@@ -591,7 +730,19 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 {
                 }
             }
+            if (_streamingOutput != null)
+            {
+                try
+                {
+                    _streamingOutput.ForceStop();
+                }
+                catch
+                {
+                }
+            }
+
             ReleaseRecordingResourcesCore();
+            ReleaseStreamingResourcesCore();
             DisposeAllPreviewSessions();
 
             foreach (var sceneSources in _sources.Values)
@@ -730,6 +881,84 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    internal static string ValidateStreamingRequest(StreamingRequest request)
+    {
+        if (request.Scene.Id == Guid.Empty) return "L'identifiant de la scène est obligatoire.";
+        if (string.IsNullOrWhiteSpace(request.StreamKey)) return "La clé de stream Twitch est obligatoire.";
+        if (request.Fps <= 0 || request.VideoBitrateKbps <= 0 || request.AudioBitrateKbps <= 0)
+            return "Les débits et le nombre d'images par seconde doivent être supérieurs à zéro.";
+        if (request.AudioSampleRate <= 0 || request.AudioChannels is < 1 or > 2)
+            return "La configuration audio doit être mono ou stéréo avec une fréquence valide.";
+        return "";
+    }
+
+    private static void ConfigureStreamingMedia(StreamingRequest request)
+    {
+        Obs.ResetAudio(new ObsAudioSettings
+        {
+            SamplesPerSecond = (uint)request.AudioSampleRate,
+            Speakers = request.AudioChannels == 1 ? ObsSpeakerLayout.Mono : ObsSpeakerLayout.Stereo
+        });
+    }
+
+    private static StreamingResources CreateStreamingOutput(StreamingRequest request)
+    {
+        ObsService? service = null;
+        ObsEncoder? videoEncoder = null;
+        ObsEncoder? audioEncoder = null;
+        ObsOutput? output = null;
+        try
+        {
+            using var serviceSettings = new ObsData();
+            serviceSettings.SetString(ObsKnownSettings.Service.ServiceName, "Twitch");
+            serviceSettings.SetString(ObsKnownSettings.Service.Server, "auto");
+            serviceSettings.SetString(ObsKnownSettings.Service.StreamKey, request.StreamKey);
+            service = ObsService.Create(
+                ObsKnownIds.Services.CommonRtmp,
+                "castor-twitch-service",
+                serviceSettings);
+
+            using var videoSettings = new ObsData();
+            videoSettings.SetString(ObsKnownSettings.Encoder.RateControl, "CBR");
+            videoSettings.SetInt(ObsKnownSettings.Encoder.Bitrate, request.VideoBitrateKbps);
+            videoSettings.SetInt(ObsKnownSettings.Encoder.KeyframeIntervalSeconds, 2);
+            videoSettings.SetString(ObsKnownSettings.Encoder.Preset, "veryfast");
+
+            using var audioSettings = new ObsData();
+            audioSettings.SetInt(ObsKnownSettings.Encoder.Bitrate, request.AudioBitrateKbps);
+            service.ApplyEncoderSettings(videoSettings, audioSettings);
+
+            videoEncoder = ObsEncoder.CreateVideo(
+                ObsKnownIds.Encoders.X264,
+                "castor-stream-video",
+                videoSettings);
+            videoEncoder.AttachToVideo();
+            audioEncoder = ObsEncoder.CreateAudio(
+                ObsKnownIds.Encoders.FfmpegAac,
+                "castor-stream-audio",
+                settings: audioSettings);
+            audioEncoder.AttachToAudio();
+
+            using var outputSettings = new ObsData();
+            output = ObsOutput.Create(
+                ObsKnownIds.Outputs.Rtmp,
+                "castor-stream-output",
+                outputSettings);
+            output.SetService(service);
+            output.SetVideoEncoder(videoEncoder);
+            output.SetAudioEncoder(audioEncoder);
+            return new(output, videoEncoder, audioEncoder, service);
+        }
+        catch
+        {
+            output?.Dispose();
+            audioEncoder?.Dispose();
+            videoEncoder?.Dispose();
+            service?.Dispose();
+            throw;
+        }
+    }
+
     private void OnRecordingOutputStateChanged(object? sender, ObsOutputStateChangedEventArgs args)
     {
         TaskCompletionSource<ObsOutputStateChangedEventArgs>? started = null;
@@ -818,7 +1047,106 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         {
         }
 
-        if (!_disposed && _pendingVideoSettings != null)
+        if (!_disposed && _streamingOutput == null && _pendingVideoSettings != null)
+            ApplyVideoSettingsCore(_pendingVideoSettings);
+    }
+
+    private void OnStreamingOutputStateChanged(object? sender, ObsOutputStateChangedEventArgs args)
+    {
+        TaskCompletionSource<ObsOutputStateChangedEventArgs>? started = null;
+        TaskCompletionSource<ObsOutputStateChangedEventArgs>? stopped = null;
+        StreamingStateChangedEventArgs? notification = null;
+        ObsOutput? unexpectedlyStoppedOutput = null;
+
+        lock (_gate)
+        {
+            if (!ReferenceEquals(sender, _streamingOutput)) return;
+
+            if (args.State == ObsOutputState.Started)
+            {
+                started = _streamingStarted;
+                notification = new StreamingStateChangedEventArgs(true);
+            }
+            else if (args.State == ObsOutputState.Stopped)
+            {
+                started = _streamingStarted;
+                stopped = _streamingStopped;
+                notification = new StreamingStateChangedEventArgs(false, StreamingStopMessage(args));
+                _streamingSceneId = null;
+                if (!_streamingStopRequested) unexpectedlyStoppedOutput = _streamingOutput;
+            }
+        }
+
+        started?.TrySetResult(args);
+        stopped?.TrySetResult(args);
+        if (notification != null) StreamingStateChanged?.Invoke(this, notification);
+        if (unexpectedlyStoppedOutput != null)
+            _ = ReleaseUnexpectedlyStoppedStreamingOutputAsync(unexpectedlyStoppedOutput);
+    }
+
+    private async Task ReleaseUnexpectedlyStoppedStreamingOutputAsync(ObsOutput output)
+    {
+        await Task.Delay(100);
+        lock (_gate)
+        {
+            if (ReferenceEquals(output, _streamingOutput)) ReleaseStreamingResourcesCore();
+        }
+    }
+
+    private void ReleaseStreamingResourcesCore()
+    {
+        var output = _streamingOutput;
+        var videoEncoder = _streamingVideoEncoder;
+        var audioEncoder = _streamingAudioEncoder;
+        var service = _streamingService;
+
+        _streamingOutput = null;
+        _streamingVideoEncoder = null;
+        _streamingAudioEncoder = null;
+        _streamingService = null;
+        _streamingSceneId = null;
+        _streamingStarted = null;
+        _streamingStopped = null;
+        _streamingStopRequested = false;
+
+        if (output != null) output.StateChanged -= OnStreamingOutputStateChanged;
+        try
+        {
+            if (_initialized) Obs.SetOutputSource(0, null);
+        }
+        catch
+        {
+        }
+        try
+        {
+            output?.Dispose();
+        }
+        catch
+        {
+        }
+        try
+        {
+            audioEncoder?.Dispose();
+        }
+        catch
+        {
+        }
+        try
+        {
+            videoEncoder?.Dispose();
+        }
+        catch
+        {
+        }
+        try
+        {
+            service?.Dispose();
+        }
+        catch
+        {
+        }
+
+        if (!_disposed && _recordingOutput == null && _pendingVideoSettings != null)
             ApplyVideoSettingsCore(_pendingVideoSettings);
     }
 
@@ -836,10 +1164,31 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         };
     }
 
+    private static string StreamingStopMessage(ObsOutputStateChangedEventArgs state)
+    {
+        if (!string.IsNullOrWhiteSpace(state.Error)) return state.Error;
+        return state.StopCode switch
+        {
+            null or ObsOutputStopCode.Success => "",
+            ObsOutputStopCode.ConnectFailed => "Connexion au serveur Twitch impossible.",
+            ObsOutputStopCode.InvalidStream => "Twitch a refusé la clé de stream.",
+            ObsOutputStopCode.Disconnected => "La connexion au serveur Twitch a été interrompue.",
+            ObsOutputStopCode.EncodeError => "L'encodeur vidéo ou audio a rencontré une erreur.",
+            ObsOutputStopCode.Unsupported => "La configuration du live n'est pas prise en charge.",
+            _ => $"Le live s'est arrêté avec le code {state.StopCode}."
+        };
+    }
+
     private sealed record RecordingResources(
         ObsOutput Output,
         ObsEncoder? VideoEncoder,
         ObsEncoder? AudioEncoder);
+
+    private sealed record StreamingResources(
+        ObsOutput Output,
+        ObsEncoder VideoEncoder,
+        ObsEncoder AudioEncoder,
+        ObsService Service);
 
     private SourceCatalog EnumerateSources(CancellationToken cancellationToken)
     {

@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Media;
 using Avalonia.Threading;
 using CastorApplication.Models.Settings;
+using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Models.Studio;
-using CastorApplication.Services;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
 using CastorApplication.Services.Studio;
@@ -20,6 +21,7 @@ public partial class StudioViewModel : ViewModelBase
     private readonly IStudioRuntime _runtime;
     private readonly IScenePreviewRuntime _previewRuntime;
     private readonly IRecordingRuntime _recordingRuntime;
+    private readonly IStreamingRuntime _streamingRuntime;
     private readonly IProviderStore _providerStore;
     private readonly SettingsService _settingsService;
     private readonly DispatcherTimer _sessionTimer;
@@ -59,11 +61,9 @@ public partial class StudioViewModel : ViewModelBase
 
     public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
 
-    [ObservableProperty] private int _streamPlatformIndex;
-    [ObservableProperty] private string _streamRtmpKey = "";
     [ObservableProperty] private string _streamTimerText = "00:00:00";
-    [ObservableProperty] private bool _isManualKeyRequired = true;
-    [ObservableProperty] private string _connectedAccountLabel = "";
+    [ObservableProperty] private bool _isStreamingTransition;
+    [ObservableProperty] private string _connectedAccountLabel = "Compte Twitch non connecté";
     [ObservableProperty] private string _recordError = "";
     [ObservableProperty] private string _streamError = "";
     [ObservableProperty] private string _outputInfoText = "";
@@ -80,6 +80,7 @@ public partial class StudioViewModel : ViewModelBase
         IStudioRuntime runtime,
         IScenePreviewRuntime previewRuntime,
         IRecordingRuntime recordingRuntime,
+        IStreamingRuntime streamingRuntime,
         IProviderStore providerStore,
         SettingsService settingsService)
     {
@@ -87,14 +88,16 @@ public partial class StudioViewModel : ViewModelBase
         _runtime = runtime;
         _previewRuntime = previewRuntime;
         _recordingRuntime = recordingRuntime;
+        _streamingRuntime = streamingRuntime;
         _providerStore = providerStore;
         _settingsService = settingsService;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
         _recordingRuntime.StateChanged += OnRecordingRuntimeStateChanged;
-        _settingsService.SettingsSaved += OnSettingsSaved;
+        _streamingRuntime.StreamingStateChanged += OnStreamingRuntimeStateChanged;
+        _providerStore.Changed += OnProviderStoreChanged;
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
-        RefreshProviderState(StreamPlatformIndex);
+        RefreshProviderState();
         RefreshOutputInfo();
         RefreshBaseCanvasSize();
     }
@@ -124,9 +127,15 @@ public partial class StudioViewModel : ViewModelBase
     private async Task StartStreaming(CancellationToken cancellationToken)
     {
         StreamError = "";
-        if (!_runtime.IsAvailable)
+        if (!_streamingRuntime.IsAvailable)
         {
-            StreamError = _runtime.UnavailableMessage;
+            StreamError = _streamingRuntime.UnavailableMessage;
+            return;
+        }
+
+        if (IsRecording)
+        {
+            StreamError = "Arrêtez l'enregistrement avant de lancer le live.";
             return;
         }
 
@@ -137,43 +146,70 @@ public partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        var platform = StreamPlatformIndex switch
+        var provider = GetConnectedTwitchProvider();
+        if (provider == null)
         {
-            0 => StreamingPlatform.Twitch,
-            1 => StreamingPlatform.YouTube,
-            _ => StreamingPlatform.Custom
-        };
-        var keyOrUrl = ResolveStreamDestination();
-        if (string.IsNullOrWhiteSpace(keyOrUrl)) return;
-
-        var settings = _settingsService.Load();
-        var result = await _runtime.StartStreamingAsync(new StreamingRequest(
-            scene.ToDefinition(), platform, keyOrUrl, FpsFromIndex(settings.SelectedFpsIndex), (int)settings.StreamingBitrate), cancellationToken);
-        if (!result.IsSuccess)
-        {
-            StreamError = result.Message;
+            StreamError = "Compte Twitch déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
+            RefreshProviderState();
             return;
         }
 
-        _workspace.SetStreamingState(true);
+        var settings = _settingsService.Load();
+        IsStreamingTransition = true;
+        try
+        {
+            var result = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
+                scene.ToDefinition(),
+                provider.StreamKey!,
+                FpsFromIndex(settings.SelectedFpsIndex),
+                (int)settings.StreamingBitrate,
+                AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
+                AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
+                AudioChannelsFromIndex(settings.SelectedChannelsIndex)), cancellationToken);
+            if (!result.IsSuccess)
+            {
+                StreamError = result.Message;
+                return;
+            }
+
+            _workspace.SetStreamingState(true);
+        }
+        finally
+        {
+            IsStreamingTransition = false;
+        }
     }
 
     [RelayCommand]
     private async Task StopStreaming(CancellationToken cancellationToken)
     {
-        var result = await _runtime.StopStreamingAsync(cancellationToken);
-        if (!result.IsSuccess)
+        IsStreamingTransition = true;
+        try
         {
-            StreamError = result.Message;
-            return;
+            var result = await _streamingRuntime.StopStreamingAsync(cancellationToken);
+            if (!result.IsSuccess)
+            {
+                StreamError = result.Message;
+                return;
+            }
+            _workspace.SetStreamingState(false);
         }
-        _workspace.SetStreamingState(false);
+        finally
+        {
+            IsStreamingTransition = false;
+        }
     }
 
     [RelayCommand]
     private async Task StartRecording(CancellationToken cancellationToken)
     {
         RecordError = "";
+        if (IsStreaming)
+        {
+            RecordError = "Arrêtez le live avant de démarrer l'enregistrement.";
+            return;
+        }
+
         if (!_recordingRuntime.IsAvailable)
         {
             RecordError = _recordingRuntime.UnavailableMessage;
@@ -245,8 +281,28 @@ public partial class StudioViewModel : ViewModelBase
             if (!string.IsNullOrWhiteSpace(e.Message)) RecordError = e.Message;
         }
 
-        if (Dispatcher.UIThread.CheckAccess()) ApplyState();
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) ApplyState();
         else Dispatcher.UIThread.Post(ApplyState);
+    }
+
+    private void OnStreamingRuntimeStateChanged(object? sender, StreamingStateChangedEventArgs e)
+    {
+        void ApplyState()
+        {
+            _workspace.SetStreamingState(e.IsStreaming);
+            if (!string.IsNullOrWhiteSpace(e.Message)) StreamError = e.Message;
+        }
+
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) ApplyState();
+        else Dispatcher.UIThread.Post(ApplyState);
+    }
+
+    private void OnProviderStoreChanged(object? sender, EventArgs e)
+    {
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess())
+            RefreshProviderState();
+        else
+            Dispatcher.UIThread.Post(RefreshProviderState);
     }
 
     // A scene switch has to reach the running output, not just the preview: the recorded
@@ -296,35 +352,20 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(SceneBarStatusBrush));
     }
 
-    private string? ResolveStreamDestination()
+    private ProviderSettings? GetConnectedTwitchProvider()
     {
-        var providerId = GetProviderId(StreamPlatformIndex);
-        if (providerId == null)
-        {
-            if (!string.IsNullOrWhiteSpace(StreamRtmpKey)) return StreamRtmpKey;
-            StreamError = "URL RTMP manquante.";
-            return null;
-        }
-
-        var provider = _providerStore.Get(providerId);
-        if (!string.IsNullOrWhiteSpace(provider?.StreamKey)) return provider.StreamKey;
-        if (!string.IsNullOrWhiteSpace(StreamRtmpKey)) return StreamRtmpKey;
-        StreamError = $"Compte {GetPlatformName(StreamPlatformIndex)} déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
-        return null;
+        var provider = _providerStore.Get("twitch");
+        return provider is { IsConnected: true } && !string.IsNullOrWhiteSpace(provider.StreamKey)
+            ? provider
+            : null;
     }
 
-    partial void OnStreamPlatformIndexChanged(int value)
+    private void RefreshProviderState()
     {
-        RefreshProviderState(value);
-        if (value == 2 && string.IsNullOrWhiteSpace(StreamRtmpKey)) StreamRtmpKey = AppSettings.CustomRtmpUrl;
-    }
-
-    private void RefreshProviderState(int platformIndex)
-    {
-        var providerId = GetProviderId(platformIndex);
-        var provider = providerId == null ? null : _providerStore.Get(providerId);
-        IsManualKeyRequired = providerId == null || provider == null;
-        ConnectedAccountLabel = provider == null ? "" : $"Connecté en tant que {provider.UserName}";
+        var provider = GetConnectedTwitchProvider();
+        ConnectedAccountLabel = provider == null
+            ? "Compte Twitch non connecté"
+            : $"Connecté en tant que {provider.UserName}";
     }
 
     private void StartSessionTimerIfNeeded()
@@ -363,6 +404,4 @@ public partial class StudioViewModel : ViewModelBase
         2 => RecordingContainer.WebM,
         _ => RecordingContainer.Mp4
     };
-    private static string? GetProviderId(int index) => index switch { 0 => "twitch", 1 => "youtube", _ => null };
-    private static string GetPlatformName(int index) => index switch { 0 => "Twitch", 1 => "YouTube Live", _ => "RTMP" };
 }
