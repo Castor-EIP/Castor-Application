@@ -797,66 +797,17 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         ObsEncoder? VideoEncoder,
         ObsEncoder? AudioEncoder);
 
-    private SourceCatalog EnumerateSources(CancellationToken cancellationToken)
+    private SourceCatalog EnumerateSources(CancellationToken ct)
     {
-        if (!IsAvailable) return new([], [], UnavailableMessageForOperation());
+        if (!IsAvailable)
+            return new([], [], UnavailableMessageForOperation());
 
         lock (_gate)
         {
-            if (!IsAvailable) return new([], [], UnavailableMessageForOperation());
-            cancellationToken.ThrowIfCancellationRequested();
-            var videos = new List<CaptureSourceOption>();
-            var audio = new List<AudioSourceOption>();
-            var failures = new List<string>();
+            if (!IsAvailable)
+                return new([], [], UnavailableMessageForOperation());
 
-            TryEnumerate("écrans", () =>
-            {
-                videos.AddRange(ObsSource.GetWindowsDisplayCaptureTargets().Select(target =>
-                    new CaptureSourceOption(target.Id, target.DisplayName, VideoCaptureKind.Monitor, target.Id)));
-            }, failures);
-            TryEnumerate("fenêtres", () =>
-            {
-                videos.AddRange(ObsSource.GetPropertyListItems(
-                    ObsKnownIds.Sources.WindowsWindowCapture,
-                    ObsKnownSettings.WindowsWindowCapture.Window).Select(target =>
-                    new CaptureSourceOption(target.Value, target.DisplayName, VideoCaptureKind.Window, target.Value)));
-            }, failures);
-            TryEnumerate("caméras", () =>
-            {
-                videos.AddRange(ObsSource.GetPropertyListItems(
-                    ObsKnownIds.Sources.WindowsVideoCaptureDevice,
-                    ObsKnownSettings.WindowsVideoCaptureDevice.VideoDeviceId).Select(target =>
-                    new CaptureSourceOption(target.Value, target.DisplayName, VideoCaptureKind.Camera, target.Value)));
-            }, failures);
-            TryEnumerate("audio système", () =>
-            {
-                audio.AddRange(ObsSource.GetPropertyListItems(
-                    ObsKnownIds.Sources.WindowsAudioOutputCapture,
-                    ObsKnownSettings.WindowsAudioCapture.DeviceId).Select(target =>
-                    new AudioSourceOption(target.Value, target.DisplayName, AudioCaptureKind.LoopbackGlobal, target.Value)));
-            }, failures);
-            TryEnumerate("microphones", () =>
-            {
-                audio.AddRange(ObsSource.GetPropertyListItems(
-                    ObsKnownIds.Sources.WindowsAudioInputCapture,
-                    ObsKnownSettings.WindowsAudioCapture.DeviceId).Select(target =>
-                    new AudioSourceOption(target.Value, target.DisplayName, AudioCaptureKind.Microphone, target.Value)));
-            }, failures);
-
-            cancellationToken.ThrowIfCancellationRequested();
-            return new(videos, audio, string.Join(" | ", failures));
-        }
-    }
-
-    private static void TryEnumerate(string category, Action enumerate, ICollection<string> failures)
-    {
-        try
-        {
-            enumerate();
-        }
-        catch (Exception exception)
-        {
-            failures.Add($"Énumération {category} impossible : {exception.Message}");
+            return ObsSourceCatalog.Enumerate(ct);
         }
     }
 
