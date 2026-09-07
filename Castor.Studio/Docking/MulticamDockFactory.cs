@@ -23,6 +23,8 @@ public sealed class MulticamDockFactory(Func<IHostWindow?>? hostWindowFactory = 
     public const string DocumentDockId = "MulticamDocuments";
     public const string RootId = "MulticamRoot";
     public const string DisplayId = "MulticamDisplay";
+    public const string AiBarId = "MulticamAiBar";
+    public const string AiDockId = "MulticamAiDock";
 
     private readonly Func<IHostWindow?> _hostWindowFactory = hostWindowFactory ?? (() => new StudioHostWindow());
 
@@ -36,7 +38,11 @@ public sealed class MulticamDockFactory(Func<IHostWindow?>? hostWindowFactory = 
     /// <summary>The whole display as a single, floatable panel.</summary>
     public IRootDock CreateDisplayLayout(object context)
     {
-        _contexts = new Dictionary<string, Func<object?>> { [DisplayId] = () => context };
+        _contexts = new Dictionary<string, Func<object?>>
+        {
+            [DisplayId] = () => context,
+            [AiBarId] = () => context,
+        };
 
         var display = new MulticamDisplayDocument
         {
@@ -58,7 +64,36 @@ public sealed class MulticamDockFactory(Func<IHostWindow?>? hostWindowFactory = 
             CanFloat = false,
         };
 
-        return WrapInRoot(documentDock);
+        var aiBar = new MulticamAiTool
+        {
+            Id = AiBarId,
+            Title = "IA",
+            Context = context,
+            CanFloat = true,
+            CanClose = false,
+        };
+
+        var aiDock = new ToolDock
+        {
+            Id = AiDockId,
+            Title = "IA",
+            VisibleDockables = CreateList<IDockable>(aiBar),
+            ActiveDockable = aiBar,
+            CanClose = false,
+            CanFloat = true,
+            Proportion = 0.14,
+        };
+
+        // The controls sit above the display, but as a panel: an operator who wants them
+        // elsewhere - or on another screen - can move them.
+        var column = new ProportionalDock
+        {
+            Id = "MulticamColumn",
+            Orientation = Dock.Model.Core.Orientation.Vertical,
+            VisibleDockables = CreateList<IDockable>(aiDock, new ProportionalDockSplitter(), documentDock),
+        };
+
+        return WrapInRoot(column);
     }
 
     private IRootDock WrapInRoot(IDock content)
