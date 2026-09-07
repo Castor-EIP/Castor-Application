@@ -14,7 +14,7 @@ public sealed class SharedWorkspaceTests
 
         var scene = workspace.CreateScene("Caméra principale");
 
-        var selection = Assert.Single(multicam.AiScenes);
+        var selection = Assert.Single(multicam.Tiles);
         Assert.Same(scene, selection.Scene);
         Assert.Equal("Caméra principale", selection.Name);
     }
