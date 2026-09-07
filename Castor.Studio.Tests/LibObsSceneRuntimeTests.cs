@@ -270,7 +270,7 @@ public sealed class LibObsSceneRuntimeTests
             Assert.True(runtime.AddSource(scene.Id,
                 new SourceAddRequest.Media(sourceId, "Preview source", mediaPath, true)).IsSuccess);
             Assert.True(runtime.RemoveSource(scene.Id, sourceId).IsSuccess);
-            Assert.True((await runtime.StopPreviewAsync(scene.Id, timeout.Token)).IsSuccess);
+            Assert.True((await runtime.StopPreviewAsync(windowHandle, scene.Id, timeout.Token)).IsSuccess);
             Assert.True(runtime.RemoveScene(scene.Id).IsSuccess);
         }
         finally
@@ -278,6 +278,155 @@ public sealed class LibObsSceneRuntimeTests
             runtime.Dispose();
             DestroyWindow(windowHandle);
             File.Delete(mediaPath);
+        }
+    }
+
+    [Fact]
+    public async Task Two_windows_can_preview_the_same_scene_at_once()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var firstWindow = CreateWindowEx(
+            0, "STATIC", "Castor preview test 1", WindowStylePopup,
+            0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        var secondWindow = CreateWindowEx(
+            0, "STATIC", "Castor preview test 2", WindowStylePopup,
+            0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        Assert.NotEqual(IntPtr.Zero, firstWindow);
+        Assert.NotEqual(IntPtr.Zero, secondWindow);
+
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var scene = new SceneDefinition { Name = "Shared preview" };
+            Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            // Studio panel and Scenes page, both showing the active scene at once: neither
+            // start should tear down the other's session.
+            var first = await runtime.StartPreviewAsync(scene, firstWindow, 320, 180, timeout.Token);
+            var second = await runtime.StartPreviewAsync(scene, secondWindow, 320, 180, timeout.Token);
+            Assert.True(first.IsSuccess, first.Message);
+            Assert.True(second.IsSuccess, second.Message);
+
+            // The first window's session is still live: resizing and stopping it must
+            // still work, exactly as if the second window had never opened.
+            runtime.ResizePreview(firstWindow, 400, 300);
+            Assert.True((await runtime.StopPreviewAsync(firstWindow, scene.Id, timeout.Token)).IsSuccess);
+
+            // Stopping the first window's (already-stopped) session must not touch the
+            // second window's, still showing the same scene.
+            Assert.True((await runtime.StopPreviewAsync(secondWindow, scene.Id, timeout.Token)).IsSuccess);
+            Assert.True(runtime.RemoveScene(scene.Id).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            DestroyWindow(firstWindow);
+            DestroyWindow(secondWindow);
+        }
+    }
+
+    [Fact]
+    public async Task Removing_a_scene_stops_every_window_previewing_it()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var firstWindow = CreateWindowEx(
+            0, "STATIC", "Castor preview test 1", WindowStylePopup,
+            0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        var secondWindow = CreateWindowEx(
+            0, "STATIC", "Castor preview test 2", WindowStylePopup,
+            0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var scene = new SceneDefinition { Name = "Removed while shown twice" };
+            Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            Assert.True((await runtime.StartPreviewAsync(scene, firstWindow, 320, 180, timeout.Token)).IsSuccess);
+            Assert.True((await runtime.StartPreviewAsync(scene, secondWindow, 320, 180, timeout.Token)).IsSuccess);
+
+            // Removing the scene must not leave either window's session dangling on a
+            // now-destroyed native source.
+            Assert.True(runtime.RemoveScene(scene.Id).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            DestroyWindow(firstWindow);
+            DestroyWindow(secondWindow);
+        }
+    }
+
+    [Fact]
+    public async Task Switching_scene_mid_recording_re_points_the_live_output()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"castor-switch-{Guid.NewGuid():N}.mkv");
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-switch-source-{Guid.NewGuid():N}.wav");
+        WriteSilentWave(mediaPath);
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var first = Guid.NewGuid();
+            var second = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(first, "Plateau").IsSuccess);
+            Assert.True(runtime.CreateScene(second, "Caméra").IsSuccess);
+            Assert.True(runtime.AddSource(first,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Source 1", mediaPath, true)).IsSuccess);
+            Assert.True(runtime.AddSource(second,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Source 2", mediaPath, true)).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+
+            Assert.True((await runtime.StartRecordingAsync(
+                CreateRecordingRequest(first, outputPath, RecordingContainer.Mkv), timeout.Token)).IsSuccess);
+            await Task.Delay(500, timeout.Token);
+
+            // The real native call, on a running output - what a fake runtime cannot prove.
+            var switched = runtime.SwitchRecordingScene(second);
+            Assert.True(switched.IsSuccess, switched.Message);
+            await Task.Delay(500, timeout.Token);
+
+            // The guard follows the scene actually being recorded now.
+            Assert.True(runtime.RemoveScene(first).IsSuccess);
+            Assert.Contains("utilisée", runtime.RemoveScene(second).Message);
+
+            var stopped = await runtime.StopRecordingAsync(timeout.Token);
+            Assert.True(stopped.IsSuccess, stopped.Message);
+            Assert.True(File.Exists(outputPath));
+            Assert.True(new FileInfo(outputPath).Length > 0);
+        }
+        finally
+        {
+            runtime.Dispose();
+            File.Delete(outputPath);
+            File.Delete(mediaPath);
+        }
+    }
+
+    [Fact]
+    public void Switching_scene_without_a_recording_is_a_no_op()
+    {
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var sceneId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(sceneId, "Hors enregistrement").IsSuccess);
+
+            // Nothing is running, so there is no output to re-point - and an unknown scene
+            // is not reported as an error either, since nothing was asked of LibObs.
+            Assert.True(runtime.SwitchRecordingScene(sceneId).IsSuccess);
+            Assert.True(runtime.SwitchRecordingScene(Guid.NewGuid()).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
         }
     }
 

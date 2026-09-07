@@ -68,7 +68,6 @@ public partial class MainViewModel : ViewModelBase
         [
             .. _studioDockViewModel.Panels.Select(panel =>
                 new StudioPanelEntry(panel.Title, new RelayCommand(() => ShowPanel(panel.Id)))),
-            new StudioPanelEntry("Réinitialiser la disposition", new RelayCommand(ResetStudioLayout)),
         ];
 
         ShowStudio();
@@ -116,7 +115,11 @@ public partial class MainViewModel : ViewModelBase
         _studioDockViewModel.ShowPanel(id);
     }
 
-    private void ResetStudioLayout()
+    // Brings every panel home in one go, detached windows included. Its own menu entry rather
+    // than one more line among the panel names: this is what someone reaches for when the
+    // workspace has lost its panels, and a recovery buried in a list is one nobody finds.
+    [RelayCommand]
+    private void RestoreAllPanels()
     {
         ShowStudio();
         _studioDockViewModel.ResetLayout();

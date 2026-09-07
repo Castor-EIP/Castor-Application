@@ -28,15 +28,20 @@
 					<MenuItem Header="S_cènes" Command="{Binding ShowScenesCommand}"/>
 				</MenuItem>
 
-				<!-- Ramène un panneau du studio à sa place : le seul recours quand l'un d'eux
-				     a disparu de la disposition. -->
-				<MenuItem Header="_Panneaux" ItemsSource="{Binding PanelMenu}">
-					<MenuItem.ItemContainerTheme>
-						<ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
-							<Setter Property="Header" Value="{Binding Title, DataType=vm:StudioPanelEntry}"/>
-							<Setter Property="Command" Value="{Binding Show, DataType=vm:StudioPanelEntry}"/>
-						</ControlTheme>
-					</MenuItem.ItemContainerTheme>
+				<!-- Le recours quand la disposition a perdu ses panneaux : l'action de secours
+				     d'abord, et à part, plutôt que noyée dans la liste des panneaux. -->
+				<MenuItem Header="_Panneaux">
+					<MenuItem Header="_Ramener tous les panneaux à leur place"
+                              Command="{Binding RestoreAllPanelsCommand}"/>
+					<Separator/>
+					<MenuItem Header="_Afficher un panneau" ItemsSource="{Binding PanelMenu}">
+						<MenuItem.ItemContainerTheme>
+							<ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+								<Setter Property="Header" Value="{Binding Title, DataType=vm:StudioPanelEntry}"/>
+								<Setter Property="Command" Value="{Binding Show, DataType=vm:StudioPanelEntry}"/>
+							</ControlTheme>
+						</MenuItem.ItemContainerTheme>
+					</MenuItem>
 				</MenuItem>
 			</Menu>
 		</Border>
