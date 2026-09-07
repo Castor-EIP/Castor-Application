@@ -1,7 +1,9 @@
 #define AppName "Castor Studio"
+
 #ifndef Version
   #define Version "undefined"
 #endif
+
 #define AppVersion Version
 #define AppPublisher "Castor Team"
 #define AppExeName "CastorStudio.exe"
@@ -15,33 +17,33 @@ AppPublisher={#AppPublisher}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 
-OutputDir=Output
-OutputBaseFilename=CastorStudioSetup
+OutputDir=..\artifacts\installer
+OutputBaseFilename=Castor-Studio-Setup-{#AppVersion}
 
-Compression=lzma
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+
+Compression=lzma2
 SolidCompression=yes
 
 WizardStyle=modern
 
-; Admin permission required for FFmpeg / capture
 PrivilegesRequired=admin
 
-; Clean uninstall
 UninstallDisplayIcon={app}\{#AppExeName}
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Files]
-; main App
-Source: "publish\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
+Source: "..\artifacts\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Tasks]
+Name: "desktopicon"; Description: "Créer un raccourci sur le bureau"; GroupDescription: "Options supplémentaires:"
 
 [Icons]
 Name: "{group}\Castor"; Filename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\Castor"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
-
-[Tasks]
-Name: "desktopicon"; Description: "Créer un raccourci sur le bureau"; GroupDescription: "Options supplémentaires:"
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Lancer Castor"; Flags: nowait postinstall skipifsilent
