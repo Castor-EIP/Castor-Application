@@ -39,7 +39,9 @@ public sealed record RecordingRequest(
 
 public sealed record StreamingRequest(
     SceneDefinition Scene,
-    StreamingPlatform Platform,
-    string StreamKeyOrUrl,
+    string StreamKey,
     int Fps,
-    int VideoBitrateKbps);
+    int VideoBitrateKbps,
+    int AudioBitrateKbps,
+    int AudioSampleRate,
+    int AudioChannels);

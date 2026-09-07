@@ -103,6 +103,9 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
             var streamKeyResponse = await api.Helix.Streams.GetStreamKeyAsync(user.Id);
             var stream = streamKeyResponse.Streams.FirstOrDefault();
             var streamKey = stream?.Key;
+            if (string.IsNullOrWhiteSpace(streamKey))
+                throw new InvalidOperationException(
+                    "Twitch n'a pas retourné de clé de stream. Vérifiez les autorisations du compte.");
 
             var providerSetting = new ProviderSettings
             {

@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISceneRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<ISourceRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<IRecordingRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
+        services.AddSingleton<IStreamingRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<IScenePreviewRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<ISceneCollectionService, SceneCollectionService>();
         services.AddSingleton<IAiAnalysisClient, UnavailableAiAnalysisClient>();
@@ -60,7 +61,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(provider => new StudioViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(), provider.GetRequiredService<IStudioRuntime>(),
-            provider.GetRequiredService<IRecordingRuntime>(), provider.GetRequiredService<IProviderStore>(),
+            provider.GetRequiredService<IRecordingRuntime>(), provider.GetRequiredService<IStreamingRuntime>(),
+            provider.GetRequiredService<IProviderStore>(),
             provider.GetRequiredService<SettingsService>()));
         services.AddSingleton(provider => new ScenesViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(), provider.GetRequiredService<IStudioRuntime>(),

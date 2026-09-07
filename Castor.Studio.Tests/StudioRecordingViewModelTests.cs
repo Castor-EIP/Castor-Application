@@ -28,7 +28,8 @@ public sealed class StudioRecordingViewModelTests
             workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeStreamingRuntime(),
+                new FakeProviderStore(), settingsService);
 
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
@@ -69,7 +70,8 @@ public sealed class StudioRecordingViewModelTests
             workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeStreamingRuntime(),
+                new FakeProviderStore(), settingsService);
 
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
@@ -118,7 +120,8 @@ public sealed class StudioRecordingViewModelTests
                 StartResult = StudioRuntimeResult.Failure("échec output")
             };
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeStreamingRuntime(),
+                new FakeProviderStore(), settingsService);
 
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
@@ -144,7 +147,8 @@ public sealed class StudioRecordingViewModelTests
             workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeStreamingRuntime(),
+                new FakeProviderStore(), settingsService);
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
             recordingRuntime.RaiseState(false, "Disque plein");
@@ -193,14 +197,33 @@ public sealed class StudioRecordingViewModelTests
         public string UnavailableMessage => "Preview indisponible";
         public Task<StudioRuntimeResult> StartPreviewAsync(SceneDefinition scene, CancellationToken cancellationToken) => Failure();
         public Task<StudioRuntimeResult> StopPreviewAsync(Guid sceneId, CancellationToken cancellationToken) => Failure();
-        public Task<StudioRuntimeResult> StartStreamingAsync(StreamingRequest request, CancellationToken cancellationToken) => Failure();
-        public Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken) => Failure();
         private static Task<StudioRuntimeResult> Failure() =>
             Task.FromResult(StudioRuntimeResult.Unavailable("Preview indisponible"));
     }
 
+    private sealed class FakeStreamingRuntime : IStreamingRuntime
+    {
+        public bool IsAvailable => true;
+        public string UnavailableMessage => "";
+        public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged
+        {
+            add { }
+            remove { }
+        }
+        public Task<StudioRuntimeResult> StartStreamingAsync(
+            StreamingRequest request,
+            CancellationToken cancellationToken) => Task.FromResult(StudioRuntimeResult.Success());
+        public Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(StudioRuntimeResult.Success());
+    }
+
     private sealed class FakeProviderStore : IProviderStore
     {
+        public event EventHandler? Changed
+        {
+            add { }
+            remove { }
+        }
         public IReadOnlyCollection<ProviderSettings> GetAll() => [];
         public ProviderSettings? Get(string providerId) => null;
         public void Save(ProviderSettings provider) { }

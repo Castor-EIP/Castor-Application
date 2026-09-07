@@ -12,6 +12,8 @@ namespace CastorApplication.Services.Auth.Storage
 
         private const string _currentAppFolderName = "castor-studio";
 
+        public event EventHandler? Changed;
+
         public ProviderStore() : base(BuildDefaultSettingsPath(_currentAppFolderName))
         {
             _settings = Load();
@@ -37,6 +39,7 @@ namespace CastorApplication.Services.Auth.Storage
         {
             _settings.Providers.RemoveAll(p => p.ProviderId == providerId);
             Save(_settings);
+            Changed?.Invoke(this, EventArgs.Empty);
         }
 
         public void Save(ProviderSettings provider)
@@ -54,6 +57,7 @@ namespace CastorApplication.Services.Auth.Storage
             }
 
             Save(_settings);
+            Changed?.Invoke(this, EventArgs.Empty);
         }
     }
 }

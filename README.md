@@ -20,8 +20,8 @@ dotnet build Castor-Studio.sln -c Debug
 ```
 
 La création, le renommage et la suppression des scènes sont synchronisés avec LibObs.
-Preview, périphériques matériels, enregistrement, streaming, scan réseau et analyse IA
-restent indisponibles tant que `IStudioRuntime` n'a pas d'implémentation LibObs.
+La preview, l'enregistrement et le direct Twitch utilisent également le runtime natif LibObs.
+Le live Twitch nécessite un compte connecté dans `Paramètres → Comptes`.
 
 ## Espace de travail Studio
 
@@ -93,5 +93,5 @@ partagé par fabrique, ce qui suppose une seule `StudioDockFactory` pour l'espac
 Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
 fichiers média, et autorise plusieurs sources dans une scène. L'enregistrement produit
 des fichiers MP4, MKV ou WebM depuis la scène active dans le dossier configuré.
-Preview, streaming, flux réseau et analyse IA restent indisponibles tant que leurs
-runtimes respectifs ne sont pas implémentés.
+Les flux réseau et l'analyse IA restent indisponibles tant que leurs runtimes respectifs
+ne sont pas implémentés.
