@@ -70,7 +70,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IAddSourceDialogViewModelFactory>(), provider.GetRequiredService<IAddSourceDialogService>(),
             provider.GetRequiredService<SettingsService>()));
         services.AddSingleton(provider => new MulticamViewModel(
-            provider.GetRequiredService<IAiAnalysisClient>(), provider.GetRequiredService<StudioWorkspaceViewModel>()));
+            provider.GetRequiredService<IAiAnalysisClient>(), provider.GetRequiredService<StudioWorkspaceViewModel>(),
+            provider.GetRequiredService<IScenePreviewRuntime>(), provider.GetRequiredService<SettingsService>()));
         services.AddSingleton(provider => new StudioDockViewModel(
             provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<DockLayoutService>()));
         services.AddSingleton(provider => new MainViewModel(

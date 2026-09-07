@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Multicam"
+             xmlns:controls="using:CastorApplication.Controls"
              x:Class="CastorApplication.Views.MulticamView"
              x:DataType="vm:MulticamViewModel">
 
@@ -22,7 +23,7 @@
 
 				<Button Grid.Column="1"
                         Content="ACTUALISER"
-                        Command="{Binding RefreshAiScenesCommand}"
+                        Command="{Binding RefreshTilesCommand}"
                         Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
                         BorderThickness="0" Padding="14,8" CornerRadius="6"
                         FontSize="12" FontWeight="SemiBold"
@@ -107,35 +108,62 @@
 			</Border>
 
 			<ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
-				<ItemsControl ItemsSource="{Binding AiScenes}">
+				<ItemsControl ItemsSource="{Binding Tiles}">
 					<ItemsControl.ItemsPanel>
 						<ItemsPanelTemplate>
 							<WrapPanel/>
 						</ItemsPanelTemplate>
 					</ItemsControl.ItemsPanel>
 					<ItemsControl.ItemTemplate>
-						<DataTemplate x:DataType="vm:AiSceneSelection">
-							<Border Width="290" Height="150"
+						<DataTemplate x:DataType="vm:MulticamSceneTile">
+							<Border Width="300"
+                                    Classes.onAir="{Binding IsOnAir}"
                                     Background="{DynamicResource AppSurface}"
                                     CornerRadius="8" Margin="0,0,12,12"
                                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
-								<Grid RowDefinitions="*, Auto" Margin="12">
-									<StackPanel Grid.Row="0" Spacing="8">
-										<CheckBox IsChecked="{Binding IsSelected}"
-                                                  FontSize="13" FontWeight="SemiBold"
-                                                  Foreground="{DynamicResource AppFg1}">
-											<TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
-										</CheckBox>
-										<TextBlock Text="{Binding SourceCount, StringFormat='{}{0} source(s)'}"
-                                                   Foreground="{DynamicResource AppFg4}" FontSize="11"/>
-									</StackPanel>
+								<Border.Styles>
+									<Style Selector="Border.onAir">
+										<Setter Property="BorderBrush" Value="{StaticResource StatusErrorBrush}"/>
+										<Setter Property="BorderThickness" Value="2"/>
+									</Style>
+								</Border.Styles>
+								<Grid RowDefinitions="Auto, Auto">
+									<Panel Grid.Row="0" Height="169" Background="Black" ClipToBounds="True">
+										<controls:StudioPreview Scene="{Binding Scene}"
+                                                                PreviewRuntime="{Binding PreviewRuntime}"
+                                                                BaseCanvasWidth="{Binding BaseCanvasWidth}"
+                                                                BaseCanvasHeight="{Binding BaseCanvasHeight}"
+                                                                Message="{Binding PreviewPlaceholderText}"
+                                                                HorizontalAlignment="Stretch"
+                                                                VerticalAlignment="Stretch"/>
+									</Panel>
 
-									<Border Grid.Row="1"
-                                            Background="{DynamicResource AppBadgeBg}" CornerRadius="4" Padding="8,4"
-                                            HorizontalAlignment="Left">
-										<TextBlock Text="SCÈNE CASTOR" Foreground="{DynamicResource AppFg3}"
-                                                   FontSize="10" FontWeight="SemiBold"/>
-									</Border>
+									<!-- Tout ce qui doit rester lisible vit sous la vidéo : la
+									     surface native est une fenêtre enfant, elle recouvre
+									     n'importe quel élément XAML posé au-dessus d'elle. -->
+									<Grid Grid.Row="1" ColumnDefinitions="Auto, *, Auto" Margin="12,10">
+										<Border Grid.Column="0"
+                                                IsVisible="{Binding IsOnAir}"
+                                                Background="{StaticResource StatusErrorBrush}"
+                                                CornerRadius="3" Padding="6,2" Margin="0,0,8,0"
+                                                VerticalAlignment="Center">
+											<TextBlock Text="À L'ANTENNE" Foreground="White"
+                                                       FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
+										</Border>
+
+										<StackPanel Grid.Column="1" Spacing="2">
+											<TextBlock Text="{Binding Name}" TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource AppFg1}"/>
+											<TextBlock Text="{Binding SourceCount, StringFormat='{}{0} source(s)'}"
+                                                       Foreground="{DynamicResource AppFg4}" FontSize="11"/>
+										</StackPanel>
+
+										<CheckBox Grid.Column="2" IsChecked="{Binding IsSelected}"
+                                                  VerticalAlignment="Center"
+                                                  ToolTip.Tip="Inclure cette scène dans l'analyse IA"/>
+									</Grid>
 								</Grid>
 							</Border>
 						</DataTemplate>
