@@ -7,10 +7,6 @@ namespace CastorApplication.Services.Studio;
 
 internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecordingRuntime, IScenePreviewRuntime, IDisposable
 {
-    private const string FfmpegOutputId = "ffmpeg_output";
-    private const string LibVpxVp9EncoderName = "libvpx-vp9";
-    private const string LibOpusEncoderName = "libopus";
-
     private sealed record NativeSource(
         ObsSource Source,
         ObsSceneItem Item,
@@ -438,9 +434,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 using (var sceneSource = scene.Source)
                     Obs.SetOutputSource(0, sceneSource);
 
-                var resources = request.Container == RecordingContainer.WebM
-                    ? CreateWebMOutput(request)
-                    : CreateMuxerOutput(request);
+                var resources = ObsRecordingOutputFactory.Create(request);
 
                 _recordingOutput = resources.Output;
                 _recordingVideoEncoder = resources.VideoEncoder;
@@ -621,71 +615,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         });
     }
 
-    private static RecordingResources CreateMuxerOutput(RecordingRequest request)
-    {
-        ObsEncoder? videoEncoder = null;
-        ObsEncoder? audioEncoder = null;
-        ObsOutput? output = null;
-        try
-        {
-            using var videoSettings = new ObsData();
-            videoSettings.SetString(ObsKnownSettings.Encoder.RateControl, "CBR");
-            videoSettings.SetInt(ObsKnownSettings.Encoder.Bitrate, request.VideoBitrateKbps);
-            videoSettings.SetInt(ObsKnownSettings.Encoder.KeyframeIntervalSeconds, 2);
-            videoSettings.SetString(ObsKnownSettings.Encoder.Preset, "veryfast");
-            videoEncoder = ObsEncoder.CreateVideo(ObsKnownIds.Encoders.X264, "castor-record-video", videoSettings);
-            videoEncoder.AttachToVideo();
-
-            using var audioSettings = new ObsData();
-            audioSettings.SetInt(ObsKnownSettings.Encoder.Bitrate, request.AudioBitrateKbps);
-            audioEncoder = ObsEncoder.CreateAudio(ObsKnownIds.Encoders.FfmpegAac, "castor-record-audio", settings: audioSettings);
-            audioEncoder.AttachToAudio();
-
-            using var outputSettings = new ObsData();
-            outputSettings.SetString(ObsKnownSettings.Output.Path, request.OutputPath);
-            outputSettings.SetString(ObsKnownSettings.Output.MuxerSettings, "");
-            output = ObsOutput.Create(ObsKnownIds.Outputs.FfmpegMuxer, "castor-record-output", outputSettings);
-            output.SetVideoEncoder(videoEncoder);
-            output.SetAudioEncoder(audioEncoder);
-            return new(output, videoEncoder, audioEncoder);
-        }
-        catch
-        {
-            output?.Dispose();
-            audioEncoder?.Dispose();
-            videoEncoder?.Dispose();
-            throw;
-        }
-    }
-
-    private static RecordingResources CreateWebMOutput(RecordingRequest request)
-    {
-        using var settings = new ObsData();
-        settings.SetString("url", request.OutputPath);
-        settings.SetString("format_name", "webm");
-        settings.SetString("format_mime_type", "video/webm");
-        settings.SetString(ObsKnownSettings.Output.MuxerSettings, "");
-        settings.SetInt("video_bitrate", request.VideoBitrateKbps);
-        settings.SetInt("audio_bitrate", request.AudioBitrateKbps);
-        settings.SetInt("gop_size", request.Fps * 2);
-        settings.SetString("video_encoder", LibVpxVp9EncoderName);
-        settings.SetString("audio_encoder", LibOpusEncoderName);
-        settings.SetInt("scale_width", request.OutputWidth);
-        settings.SetInt("scale_height", request.OutputHeight);
-        ObsOutput? output = null;
-        try
-        {
-            output = ObsOutput.Create(FfmpegOutputId, "castor-record-output", settings);
-            LibObsOutputInterop.SetAudioMixers(output, 1);
-            return new(output, null, null);
-        }
-        catch
-        {
-            output?.Dispose();
-            throw;
-        }
-    }
-
     private void OnRecordingOutputStateChanged(object? sender, ObsOutputStateChangedEventArgs args)
     {
         TaskCompletionSource<ObsOutputStateChangedEventArgs>? started = null;
@@ -791,11 +720,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             _ => $"L'enregistrement s'est arrêté avec le code {state.StopCode}."
         };
     }
-
-    private sealed record RecordingResources(
-        ObsOutput Output,
-        ObsEncoder? VideoEncoder,
-        ObsEncoder? AudioEncoder);
 
     private SourceCatalog EnumerateSources(CancellationToken ct)
     {
