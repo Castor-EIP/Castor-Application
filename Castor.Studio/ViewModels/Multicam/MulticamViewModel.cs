@@ -30,11 +30,19 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     public IScenePreviewRuntime PreviewRuntime { get; }
 
     [ObservableProperty] private bool _isSelected;
+
+    // Set by the AI pipeline through MulticamViewModel.SetAiFocus, never by the tile
+    // itself: one scene at a time may be Selected, which only the owner of the
+    // whole collection can guarantee.
+    [ObservableProperty] private MulticamAiState _aiState = MulticamAiState.None;
     [ObservableProperty] private int _baseCanvasWidth = 1920;
     [ObservableProperty] private int _baseCanvasHeight = 1080;
 
     /// <summary>Whether this is the scene currently going to the output.</summary>
     public bool IsOnAir => ReferenceEquals(_workspace.ActiveScene, Scene);
+
+    public bool IsAiSelected => AiState == MulticamAiState.Selected;
+    public bool IsAiConsidered => AiState == MulticamAiState.Considered;
 
     public string PreviewPlaceholderText => !PreviewRuntime.IsAvailable
         ? PreviewRuntime.UnavailableMessage
@@ -55,6 +63,12 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     }
 
     internal void NotifyOnAirChanged() => OnPropertyChanged(nameof(IsOnAir));
+
+    partial void OnAiStateChanged(MulticamAiState value)
+    {
+        OnPropertyChanged(nameof(IsAiSelected));
+        OnPropertyChanged(nameof(IsAiConsidered));
+    }
 
     internal void ApplyBaseCanvas(int width, int height)
     {
@@ -80,6 +94,10 @@ public partial class MulticamViewModel : ViewModelBase
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IScenePreviewRuntime _previewRuntime;
     private readonly SettingsService? _settingsService;
+
+    // Kept so a tile rebuilt after a scene change picks its marking back up.
+    private SceneItemViewModel? _aiSelectedScene;
+    private IReadOnlySet<SceneItemViewModel> _aiConsideredScenes = new HashSet<SceneItemViewModel>();
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
@@ -132,6 +150,10 @@ public partial class MulticamViewModel : ViewModelBase
             });
         }
 
+        // A scene that has left the workspace can no longer be the AI's pick.
+        if (_aiSelectedScene != null && !Scenes.Contains(_aiSelectedScene)) _aiSelectedScene = null;
+        ApplyAiFocus();
+
         OnPropertyChanged(nameof(HasScenes));
     }
 
@@ -153,6 +175,37 @@ public partial class MulticamViewModel : ViewModelBase
         var (width, height) = CurrentBaseCanvas();
         foreach (var tile in Tiles) tile.ApplyBaseCanvas(width, height);
     }
+
+    /// <summary>
+    /// Records what the AI is doing with the scenes, as one atomic picture.
+    /// Anything not named is cleared, so the grid can never keep showing a
+    /// decision the pipeline has moved on from.
+    /// </summary>
+    /// <param name="selected">The scene the AI would switch to, if any.</param>
+    /// <param name="considered">Candidates it is weighing. The selected scene need not repeat here.</param>
+    public void SetAiFocus(SceneItemViewModel? selected, IEnumerable<SceneItemViewModel>? considered = null)
+    {
+        _aiSelectedScene = selected;
+        _aiConsideredScenes = considered?.ToHashSet() ?? [];
+        ApplyAiFocus();
+    }
+
+    // Also runs after the tiles are rebuilt, so a scene added or removed elsewhere
+    // does not silently erase what the pipeline last reported.
+    private void ApplyAiFocus()
+    {
+        foreach (var tile in Tiles)
+        {
+            tile.AiState = ReferenceEquals(tile.Scene, _aiSelectedScene)
+                ? MulticamAiState.Selected
+                : _aiConsideredScenes.Contains(tile.Scene)
+                    ? MulticamAiState.Considered
+                    : MulticamAiState.None;
+        }
+    }
+
+    /// <summary>Drops every AI marking, for when the pipeline stops or is turned off.</summary>
+    public void ClearAiFocus() => SetAiFocus(null);
 
     [RelayCommand]
     private void SetAiOff()
