@@ -107,19 +107,19 @@
                            FontSize="12" TextWrapping="Wrap"/>
 			</Border>
 
-			<ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
-				<ItemsControl ItemsSource="{Binding Tiles}">
-					<ItemsControl.ItemsPanel>
-						<ItemsPanelTemplate>
-							<WrapPanel/>
-						</ItemsPanelTemplate>
-					</ItemsControl.ItemsPanel>
+			<ItemsControl Grid.Row="1" ItemsSource="{Binding Tiles}">
+				<ItemsControl.ItemsPanel>
+					<ItemsPanelTemplate>
+						<UniformGrid Columns="{Binding GridColumns}"/>
+					</ItemsPanelTemplate>
+				</ItemsControl.ItemsPanel>
 					<ItemsControl.ItemTemplate>
 						<DataTemplate x:DataType="vm:MulticamSceneTile">
-							<Border Width="300"
-                                    Classes.onAir="{Binding IsOnAir}"
+							<Border Classes.onAir="{Binding IsOnAir}"
+                                    DoubleTapped="OnTileDoubleTapped"
+                                    ToolTip.Tip="Double-cliquer pour envoyer cette scène à l'antenne"
                                     Background="{DynamicResource AppSurface}"
-                                    CornerRadius="8" Margin="0,0,12,12"
+                                    CornerRadius="8" Margin="0,0,10,10"
                                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
 								<Border.Styles>
 									<Style Selector="Border.onAir">
@@ -127,8 +127,31 @@
 										<Setter Property="BorderThickness" Value="2"/>
 									</Style>
 								</Border.Styles>
-								<Grid RowDefinitions="Auto, Auto">
-									<Panel Grid.Row="0" Height="169" Background="Black" ClipToBounds="True">
+								<Grid RowDefinitions="Auto, *, Auto">
+
+									<!-- Le titre et l'état live tiennent dans un bandeau réservé plutôt
+									     qu'en surimpression : la surface native est une fenêtre enfant
+									     Win32, Windows la compose au-dessus de tout ce qu'Avalonia
+									     peint, donc rien posé sur la vidéo ne serait visible. -->
+									<Border Grid.Row="0" Background="#0B0B12" Padding="10,6"
+                                            CornerRadius="7,7,0,0">
+										<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+											<Border IsVisible="{Binding IsOnAir}"
+                                                    Background="{StaticResource StatusErrorBrush}"
+                                                    CornerRadius="3" Padding="6,2"
+                                                    VerticalAlignment="Center">
+												<TextBlock Text="LIVE" Foreground="White"
+                                                           FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
+											</Border>
+											<TextBlock Text="{Binding Name}" TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource AppFg1}"/>
+										</StackPanel>
+									</Border>
+
+									<Panel Grid.Row="1" Background="Black" ClipToBounds="True">
 										<controls:StudioPreview Scene="{Binding Scene}"
                                                                 PreviewRuntime="{Binding PreviewRuntime}"
                                                                 BaseCanvasWidth="{Binding BaseCanvasWidth}"
@@ -138,23 +161,8 @@
                                                                 VerticalAlignment="Stretch"/>
 									</Panel>
 
-									<!-- Tout ce qui doit rester lisible vit sous la vidéo : la
-									     surface native est une fenêtre enfant, elle recouvre
-									     n'importe quel élément XAML posé au-dessus d'elle. -->
-									<Grid Grid.Row="1" ColumnDefinitions="Auto, Auto, *, Auto" Margin="12,10">
+									<Grid Grid.Row="2" ColumnDefinitions="Auto, Auto, *, Auto" Margin="10,8">
 										<Border Grid.Column="0"
-                                                IsVisible="{Binding IsOnAir}"
-                                                Background="{StaticResource StatusErrorBrush}"
-                                                CornerRadius="3" Padding="6,2" Margin="0,0,6,0"
-                                                VerticalAlignment="Center">
-											<TextBlock Text="À L'ANTENNE" Foreground="White"
-                                                       FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
-										</Border>
-
-										<!-- La bordure de la tuile dit ce qui est diffusé ; la pastille dit
-										     ce que l'IA veut. Les garder distincts est tout l'intérêt :
-										     l'écart entre les deux est ce qu'un opérateur doit voir. -->
-										<Border Grid.Column="1"
                                                 IsVisible="{Binding IsAiSelected}"
                                                 Background="{DynamicResource AppAccentFg}"
                                                 CornerRadius="3" Padding="6,2" Margin="0,0,8,0"
@@ -173,14 +181,10 @@
                                                        FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
 										</Border>
 
-										<StackPanel Grid.Column="2" Spacing="2">
-											<TextBlock Text="{Binding Name}" TextWrapping="NoWrap"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       FontSize="13" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource AppFg1}"/>
-											<TextBlock Text="{Binding SourceCount, StringFormat='{}{0} source(s)'}"
-                                                       Foreground="{DynamicResource AppFg4}" FontSize="11"/>
-										</StackPanel>
+										<TextBlock Grid.Column="2"
+                                                   Text="{Binding SourceCount, StringFormat='{}{0} source(s)'}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AppFg4}" FontSize="11"/>
 
 										<CheckBox Grid.Column="3" IsChecked="{Binding IsSelected}"
                                                   VerticalAlignment="Center"
@@ -190,8 +194,7 @@
 							</Border>
 						</DataTemplate>
 					</ItemsControl.ItemTemplate>
-				</ItemsControl>
-			</ScrollViewer>
+			</ItemsControl>
 		</Grid>
 
 	</Grid>

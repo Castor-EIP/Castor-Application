@@ -64,6 +64,11 @@ public sealed partial class MulticamSceneTile : ViewModelBase
 
     internal void NotifyOnAirChanged() => OnPropertyChanged(nameof(IsOnAir));
 
+    // Deliberate, explicit action - unlike selecting a scene on the Scenes page, which
+    // must never move what is being broadcast.
+    [RelayCommand]
+    private void PutOnAir() => _workspace.SelectScene(Scene);
+
     partial void OnAiStateChanged(MulticamAiState value)
     {
         OnPropertyChanged(nameof(IsAiSelected));
@@ -105,6 +110,10 @@ public partial class MulticamViewModel : ViewModelBase
     public ObservableCollection<MulticamSceneTile> Tiles { get; } = [];
 
     public bool HasScenes => Tiles.Count > 0;
+
+    // A multiview fills the page rather than flowing cards: the column count follows
+    // the scene count so every tile stays as large as it can be.
+    public int GridColumns => Tiles.Count <= 1 ? 1 : Tiles.Count <= 4 ? 2 : Tiles.Count <= 9 ? 3 : 4;
 
     [ObservableProperty] private bool _isAiOff = true;
     [ObservableProperty] private bool _isAiAgent;
@@ -155,6 +164,7 @@ public partial class MulticamViewModel : ViewModelBase
         ApplyAiFocus();
 
         OnPropertyChanged(nameof(HasScenes));
+        OnPropertyChanged(nameof(GridColumns));
     }
 
     private (int Width, int Height) CurrentBaseCanvas()
