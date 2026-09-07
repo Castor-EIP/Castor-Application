@@ -386,11 +386,11 @@ public sealed class ScenesViewModelRuntimeTests
             CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
 
-        public void ResizePreview(uint width, uint height)
+        public void ResizePreview(IntPtr windowHandle, uint width, uint height)
         {
         }
 
-        public Task<StudioRuntimeResult> StopPreviewAsync(Guid sceneId, CancellationToken cancellationToken) =>
+        public Task<StudioRuntimeResult> StopPreviewAsync(IntPtr windowHandle, Guid sceneId, CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
     }
 

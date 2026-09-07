@@ -93,12 +93,13 @@ reconstruire, et déplace donc la même instance entre la fenêtre principale et
 flottante. Ce recyclage est partagé par fabrique, ce qui suppose une seule
 `StudioDockFactory` pour l'espace de travail.
 
-`LibObsSceneRuntime` ne pilote qu'une seule surface d'aperçu native pour toute
-l'application : la page Scènes et le panneau Studio affichent la même scène, mais un seul
-des deux peut effectivement la dessiner à un instant donné si les deux sont attachés en même
-temps (par exemple un panneau Aperçu détaché puis la page Scènes ouverte à côté) — celui qui
-démarre en second prend la main, l'autre reste figé sur sa dernière image sans erreur
-visible.
+`LibObsSceneRuntime` tient un aperçu natif par fenêtre qui en demande un, indexé sur son
+handle : la page Scènes et le panneau Studio peuvent afficher la même scène active en même
+temps, chacun avec sa propre surface, y compris quand le panneau Studio est détaché dans sa
+propre fenêtre. Supprimer une scène ou changer la résolution de base referme les aperçus
+concernés (tous, dans le second cas, puisqu'ils partagent le même canevas OBS) ; chaque
+fenêtre encore ouverte relance alors le sien.
+
 Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
 fichiers média, et autorise plusieurs sources dans une scène. L'enregistrement produit
 des fichiers MP4, MKV ou WebM depuis la scène active dans le dossier configuré.

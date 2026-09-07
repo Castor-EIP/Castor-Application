@@ -184,7 +184,7 @@ public sealed class ObsPreviewHost : NativeControlHost
             if (version != _refreshVersion || cancellation.IsCancellationRequested)
             {
                 if (result.IsSuccess)
-                    await runtime.StopPreviewAsync(scene.Id, CancellationToken.None);
+                    await runtime.StopPreviewAsync(handle, scene.Id, CancellationToken.None);
                 return;
             }
 
@@ -217,6 +217,7 @@ public sealed class ObsPreviewHost : NativeControlHost
     {
         if (_runningSceneId == null || Runtime == null || Bounds.Width <= 0 || Bounds.Height <= 0) return;
         Runtime.ResizePreview(
+            _nativeHandle,
             PixelWidth,
             PixelHeight);
     }
@@ -240,7 +241,7 @@ public sealed class ObsPreviewHost : NativeControlHost
 
         try
         {
-            Runtime.StopPreviewAsync(sceneId.Value, CancellationToken.None).GetAwaiter().GetResult();
+            Runtime.StopPreviewAsync(_nativeHandle, sceneId.Value, CancellationToken.None).GetAwaiter().GetResult();
         }
         catch
         {

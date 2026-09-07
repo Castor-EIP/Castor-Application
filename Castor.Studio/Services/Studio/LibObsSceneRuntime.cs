@@ -17,17 +17,24 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         bool IsMedia,
         bool ProvidesVideo);
 
+    // One native display per window that asked for a preview - a Studio panel and the
+    // Scenes page (or two detached panels) can each hold their own live session instead of
+    // taking turns on a single global one.
+    private sealed class PreviewSession
+    {
+        public required ObsView View { get; init; }
+        public required ObsSource SceneSource { get; init; }
+        public required Guid SceneId { get; init; }
+        public required uint CanvasWidth { get; init; }
+        public required uint CanvasHeight { get; init; }
+        public required ObsDisplay Display { get; init; }
+    }
+
     private readonly object _gate = new();
     private readonly Dictionary<Guid, ObsScene> _scenes = [];
     private readonly Dictionary<Guid, Dictionary<Guid, NativeSource>> _sources = [];
+    private readonly Dictionary<IntPtr, PreviewSession> _previewSessions = [];
     private readonly SettingsService? _settingsService;
-    private ObsDisplay? _previewDisplay;
-    private ObsView? _previewView;
-    private ObsSource? _previewSceneSource;
-    private Guid? _previewSceneId;
-    private IntPtr _previewWindowHandle;
-    private uint _previewCanvasWidth;
-    private uint _previewCanvasHeight;
     private ObsOutput? _recordingOutput;
     private ObsEncoder? _recordingVideoEncoder;
     private ObsEncoder? _recordingAudioEncoder;
@@ -130,8 +137,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             try
             {
-                if (_previewSceneId == sceneId)
-                    DisposePreviewCore();
+                DisposePreviewSessionsForScene(sceneId);
 
                 if (_sources.TryGetValue(sceneId, out var sources))
                 {
@@ -274,7 +280,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
 
         _pendingVideoSettings = null;
-        DisposePreviewCore();
+        // Every live session renders against this canvas; resetting it invalidates all of
+        // them at once, not just one.
+        DisposeAllPreviewSessions();
         try
         {
             Obs.ResetVideo(next);
@@ -341,68 +349,77 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 return Task.FromResult(StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs."));
             try
             {
-                if (_previewDisplay == null ||
-                    _previewWindowHandle != windowHandle ||
-                    _previewSceneId != scene.Id)
+                if (_previewSessions.TryGetValue(windowHandle, out var existing) && existing.SceneId == scene.Id)
                 {
-                    DisposePreviewCore();
-                    _previewSceneSource = nativeScene.Source;
-                    _previewView = ObsView.Create();
-                    _previewView.SetSource(0, _previewSceneSource);
-                    _previewCanvasWidth = _videoSettings?.BaseWidth ?? 1920;
-                    _previewCanvasHeight = _videoSettings?.BaseHeight ?? 1080;
-                    _previewDisplay = ObsDisplay.Create(new ObsDisplaySettings
-                    {
-                        WindowHandle = windowHandle,
-                        Width = Math.Max(1u, width),
-                        Height = Math.Max(1u, height),
-                        BackgroundColor = 0xFF000000
-                    });
-                    _previewDisplay.AddRenderCallback(RenderPreviewFrame);
-                    _previewWindowHandle = windowHandle;
-                }
-                else
-                {
-                    _previewDisplay.Resize(Math.Max(1u, width), Math.Max(1u, height));
+                    existing.Display.Resize(Math.Max(1u, width), Math.Max(1u, height));
+                    return Task.FromResult(StudioRuntimeResult.Success());
                 }
 
-                _previewSceneId = scene.Id;
+                // A different scene for this window, or its first preview: replace only
+                // this window's session, leaving every other window's session untouched.
+                DisposePreviewSession(windowHandle);
+
+                var sceneSource = nativeScene.Source;
+                var view = ObsView.Create();
+                view.SetSource(0, sceneSource);
+
+                var display = ObsDisplay.Create(new ObsDisplaySettings
+                {
+                    WindowHandle = windowHandle,
+                    Width = Math.Max(1u, width),
+                    Height = Math.Max(1u, height),
+                    BackgroundColor = 0xFF000000
+                });
+
+                var session = new PreviewSession
+                {
+                    View = view,
+                    SceneSource = sceneSource,
+                    SceneId = scene.Id,
+                    CanvasWidth = _videoSettings?.BaseWidth ?? 1920,
+                    CanvasHeight = _videoSettings?.BaseHeight ?? 1080,
+                    Display = display,
+                };
+                display.AddRenderCallback(frame => RenderPreviewFrame(frame, session));
+                _previewSessions[windowHandle] = session;
+
                 return Task.FromResult(StudioRuntimeResult.Success());
             }
             catch (Exception exception)
             {
-                DisposePreviewCore();
+                DisposePreviewSession(windowHandle);
                 return Task.FromResult(StudioRuntimeResult.Failure(
                     $"Démarrage de la preview impossible : {exception.Message}"));
             }
         }
     }
 
-    public void ResizePreview(uint width, uint height)
+    public void ResizePreview(IntPtr windowHandle, uint width, uint height)
     {
         if (width == 0 || height == 0) return;
 
         lock (_gate)
         {
-            if (!IsAvailable || _previewDisplay == null) return;
+            if (!IsAvailable || !_previewSessions.TryGetValue(windowHandle, out var session)) return;
             try
             {
-                _previewDisplay.Resize(width, height);
+                session.Display.Resize(width, height);
             }
             catch
             {
-                DisposePreviewCore();
+                DisposePreviewSession(windowHandle);
             }
         }
     }
 
-    public Task<StudioRuntimeResult> StopPreviewAsync(Guid sceneId, CancellationToken cancellationToken)
+    public Task<StudioRuntimeResult> StopPreviewAsync(IntPtr windowHandle, Guid sceneId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         lock (_gate)
         {
-            if (_previewSceneId == sceneId) DisposePreviewCore();
+            if (_previewSessions.TryGetValue(windowHandle, out var session) && session.SceneId == sceneId)
+                DisposePreviewSession(windowHandle);
         }
 
         return Task.FromResult(StudioRuntimeResult.Success());
@@ -547,7 +564,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 }
             }
             ReleaseRecordingResourcesCore();
-            DisposePreviewCore();
+            DisposeAllPreviewSessions();
 
             foreach (var sceneSources in _sources.Values)
             {
@@ -591,7 +608,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         if (AreSameVideoSettings(_videoSettings, desired)) return;
 
-        DisposePreviewCore();
+        DisposeAllPreviewSessions();
         Obs.ResetVideo(desired);
         _videoSettings = desired;
         PreviewResetRequested?.Invoke(this, EventArgs.Empty);
@@ -906,22 +923,48 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    private void DisposePreviewCore()
+    // Tears down every live preview session - used wherever Obs.ResetVideo() runs, since
+    // that invalidates the shared canvas every session renders against.
+    private void DisposeAllPreviewSessions()
     {
-        var display = _previewDisplay;
-        var view = _previewView;
-        var sceneSource = _previewSceneSource;
-        _previewDisplay = null;
-        _previewView = null;
-        _previewSceneSource = null;
-        _previewSceneId = null;
-        _previewWindowHandle = IntPtr.Zero;
-        _previewCanvasWidth = 0;
-        _previewCanvasHeight = 0;
+        if (_previewSessions.Count == 0) return;
 
+        var sessions = _previewSessions.Values.ToArray();
+        _previewSessions.Clear();
+        foreach (var session in sessions)
+            ReleasePreviewSession(session);
+    }
+
+    // Tears down every session currently showing a given scene - used when that scene is
+    // removed, since none of them have anything left to render.
+    private void DisposePreviewSessionsForScene(Guid sceneId)
+    {
+        if (_previewSessions.Count == 0) return;
+
+        List<IntPtr>? handles = null;
+        foreach (var (handle, session) in _previewSessions)
+        {
+            if (session.SceneId != sceneId) continue;
+            handles ??= [];
+            handles.Add(handle);
+        }
+
+        if (handles == null) return;
+        foreach (var handle in handles)
+            DisposePreviewSession(handle);
+    }
+
+    private void DisposePreviewSession(IntPtr windowHandle)
+    {
+        if (!_previewSessions.Remove(windowHandle, out var session)) return;
+        ReleasePreviewSession(session);
+    }
+
+    private static void ReleasePreviewSession(PreviewSession session)
+    {
         try
         {
-            display?.Dispose();
+            session.Display.Dispose();
         }
         catch
         {
@@ -929,7 +972,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         try
         {
-            view?.Dispose();
+            session.View.Dispose();
         }
         catch
         {
@@ -937,24 +980,19 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         try
         {
-            sceneSource?.Dispose();
+            session.SceneSource.Dispose();
         }
         catch
         {
         }
     }
 
-    private void RenderPreviewFrame(ObsDisplayFrame frame)
-    {
-        var sceneSource = _previewSceneSource;
-        if (sceneSource == null) return;
-
+    private static void RenderPreviewFrame(ObsDisplayFrame frame, PreviewSession session) =>
         ObsPreviewGraphics.RenderScene(
             frame,
-            sceneSource,
-            _previewCanvasWidth,
-            _previewCanvasHeight);
-    }
+            session.SceneSource,
+            session.CanvasWidth,
+            session.CanvasHeight);
 
     private static void TryRollbackSource(ObsSource? source, ObsSceneItem? item)
     {
