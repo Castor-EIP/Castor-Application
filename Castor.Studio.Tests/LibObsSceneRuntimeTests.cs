@@ -24,7 +24,7 @@ public sealed class LibObsSceneRuntimeTests
             OutputHeight: 1440,
             RecordingContainer.Mkv);
 
-        var settings = LibObsSceneRuntime.CreateRecordingVideoSettings(request);
+        var settings = ObsMediaConfiguration.CreateRecordingVideoSettings(request);
 
         Assert.Equal(2560u, settings.BaseWidth);
         Assert.Equal(1440u, settings.BaseHeight);

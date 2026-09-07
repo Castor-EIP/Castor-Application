@@ -17,13 +17,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private readonly Dictionary<Guid, ObsScene> _scenes = [];
     private readonly Dictionary<Guid, Dictionary<Guid, NativeSource>> _sources = [];
     private readonly SettingsService? _settingsService;
-    private ObsDisplay? _previewDisplay;
-    private ObsView? _previewView;
-    private ObsSource? _previewSceneSource;
-    private Guid? _previewSceneId;
-    private IntPtr _previewWindowHandle;
-    private uint _previewCanvasWidth;
-    private uint _previewCanvasHeight;
+    private readonly LibObsPreviewRuntime _previewRuntime = new();
     private ObsOutput? _recordingOutput;
     private ObsEncoder? _recordingVideoEncoder;
     private ObsEncoder? _recordingAudioEncoder;
@@ -49,7 +43,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         try
         {
             Obs.Startup();
-            _videoSettings = CreatePreviewVideoSettings(settingsService?.Load() ?? new ApplicationSettings());
+            _videoSettings = ObsMediaConfiguration.CreatePreviewVideoSettings(
+                settingsService?.Load() ?? new ApplicationSettings());
             Obs.ResetVideo(_videoSettings);
             Obs.ResetAudio(new ObsAudioSettings());
             Obs.LoadModules().EnsureSuccess();
@@ -126,8 +121,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             try
             {
-                if (_previewSceneId == sceneId)
-                    DisposePreviewCore();
+                _previewRuntime.Stop(sceneId);
 
                 if (_sources.TryGetValue(sceneId, out var sources))
                 {
@@ -263,15 +257,16 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
     private void ApplyVideoSettingsCore(ApplicationSettings settings)
     {
-        var next = CreatePreviewVideoSettings(settings);
-        if (AreSameVideoSettings(_videoSettings, next))
+        var next = ObsMediaConfiguration.CreatePreviewVideoSettings(settings);
+
+        if (ObsMediaConfiguration.AreSameVideoSettings(_videoSettings, next))
         {
             _pendingVideoSettings = null;
             return;
         }
 
         _pendingVideoSettings = null;
-        DisposePreviewCore();
+        _previewRuntime.Dispose();
         try
         {
             Obs.ResetVideo(next);
@@ -285,36 +280,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         PreviewResetRequested?.Invoke(this, EventArgs.Empty);
     }
-
-    private static ObsVideoSettings CreatePreviewVideoSettings(ApplicationSettings settings)
-    {
-        var (baseWidth, baseHeight) = VideoResolution.BaseFromIndex(settings.SelectedBaseResolutionIndex);
-        var (outputWidth, outputHeight) = VideoResolution.OutputFromIndex(settings.SelectedOutputResolutionIndex);
-        var fps = settings.SelectedFpsIndex switch
-        {
-            0 => 60,
-            2 => 25,
-            _ => 30
-        };
-
-        return new ObsVideoSettings
-        {
-            FpsNumerator = (uint)fps,
-            BaseWidth = (uint)baseWidth,
-            BaseHeight = (uint)baseHeight,
-            OutputWidth = (uint)outputWidth,
-            OutputHeight = (uint)outputHeight,
-        };
-    }
-
-    private static bool AreSameVideoSettings(ObsVideoSettings? left, ObsVideoSettings right) =>
-        left != null &&
-        left.FpsNumerator == right.FpsNumerator &&
-        left.FpsDenominator == right.FpsDenominator &&
-        left.BaseWidth == right.BaseWidth &&
-        left.BaseHeight == right.BaseHeight &&
-        left.OutputWidth == right.OutputWidth &&
-        left.OutputHeight == right.OutputHeight;
 
     public Task<StudioRuntimeResult> StartPreviewAsync(
         SceneDefinition scene,
@@ -336,42 +301,14 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             if (!IsAvailable) return Task.FromResult(StudioRuntimeResult.Unavailable(UnavailableMessageForOperation()));
             if (!_scenes.TryGetValue(scene.Id, out var nativeScene))
                 return Task.FromResult(StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs."));
-            try
-            {
-                if (_previewDisplay == null ||
-                    _previewWindowHandle != windowHandle ||
-                    _previewSceneId != scene.Id)
-                {
-                    DisposePreviewCore();
-                    _previewSceneSource = nativeScene.Source;
-                    _previewView = ObsView.Create();
-                    _previewView.SetSource(0, _previewSceneSource);
-                    _previewCanvasWidth = _videoSettings?.BaseWidth ?? 1920;
-                    _previewCanvasHeight = _videoSettings?.BaseHeight ?? 1080;
-                    _previewDisplay = ObsDisplay.Create(new ObsDisplaySettings
-                    {
-                        WindowHandle = windowHandle,
-                        Width = Math.Max(1u, width),
-                        Height = Math.Max(1u, height),
-                        BackgroundColor = 0xFF000000
-                    });
-                    _previewDisplay.AddRenderCallback(RenderPreviewFrame);
-                    _previewWindowHandle = windowHandle;
-                }
-                else
-                {
-                    _previewDisplay.Resize(Math.Max(1u, width), Math.Max(1u, height));
-                }
-
-                _previewSceneId = scene.Id;
-                return Task.FromResult(StudioRuntimeResult.Success());
-            }
-            catch (Exception exception)
-            {
-                DisposePreviewCore();
-                return Task.FromResult(StudioRuntimeResult.Failure(
-                    $"Démarrage de la preview impossible : {exception.Message}"));
-            }
+            return Task.FromResult(_previewRuntime.Start(
+                scene.Id,
+                nativeScene,
+                windowHandle,
+                width,
+                height,
+                _videoSettings?.BaseWidth ?? 1920,
+                _videoSettings?.BaseHeight ?? 1080));
         }
     }
 
@@ -381,15 +318,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         lock (_gate)
         {
-            if (!IsAvailable || _previewDisplay == null) return;
-            try
-            {
-                _previewDisplay.Resize(width, height);
-            }
-            catch
-            {
-                DisposePreviewCore();
-            }
+            if (!IsAvailable) return;
+            _previewRuntime.Resize(width, height);
         }
     }
 
@@ -399,7 +329,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         lock (_gate)
         {
-            if (_previewSceneId == sceneId) DisposePreviewCore();
+            _previewRuntime.Stop(sceneId);
         }
 
         return Task.FromResult(StudioRuntimeResult.Success());
@@ -430,7 +360,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             try
             {
                 EnsureVideoSettingsForRecording(request);
-                ConfigureRecordingMedia(request);
+                ObsMediaConfiguration.ConfigureRecordingAudio(request);
                 using (var sceneSource = scene.Source)
                     Obs.SetOutputSource(0, sceneSource);
 
@@ -542,7 +472,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 }
             }
             ReleaseRecordingResourcesCore();
-            DisposePreviewCore();
+            _previewRuntime.Dispose();
 
             foreach (var sceneSources in _sources.Values)
             {
@@ -582,37 +512,16 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
     private void EnsureVideoSettingsForRecording(RecordingRequest request)
     {
-        var desired = CreateRecordingVideoSettings(request);
+        var desired =
+            ObsMediaConfiguration.CreateRecordingVideoSettings(request);
 
-        if (AreSameVideoSettings(_videoSettings, desired)) return;
+        if (ObsMediaConfiguration.AreSameVideoSettings(_videoSettings, desired))
+            return;
 
-        DisposePreviewCore();
+        _previewRuntime.Dispose();
         Obs.ResetVideo(desired);
         _videoSettings = desired;
         PreviewResetRequested?.Invoke(this, EventArgs.Empty);
-    }
-
-    internal static ObsVideoSettings CreateRecordingVideoSettings(RecordingRequest request) =>
-        new()
-        {
-            FpsNumerator = (uint)request.Fps,
-            BaseWidth = (uint)request.BaseWidth,
-            BaseHeight = (uint)request.BaseHeight,
-            OutputWidth = (uint)request.OutputWidth,
-            OutputHeight = (uint)request.OutputHeight,
-            OutputFormat = ObsVideoFormat.Nv12,
-            ColorSpace = ObsVideoColorSpace.Rec709,
-            Range = ObsVideoRange.Partial,
-            ScaleType = ObsScaleType.Bicubic
-        };
-
-    private static void ConfigureRecordingMedia(RecordingRequest request)
-    {
-        Obs.ResetAudio(new ObsAudioSettings
-        {
-            SamplesPerSecond = (uint)request.AudioSampleRate,
-            Speakers = request.AudioChannels == 1 ? ObsSpeakerLayout.Mono : ObsSpeakerLayout.Stereo
-        });
     }
 
     private void OnRecordingOutputStateChanged(object? sender, ObsOutputStateChangedEventArgs args)
@@ -753,56 +662,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         {
             nativeSource.Source.Dispose();
         }
-    }
-
-    private void DisposePreviewCore()
-    {
-        var display = _previewDisplay;
-        var view = _previewView;
-        var sceneSource = _previewSceneSource;
-        _previewDisplay = null;
-        _previewView = null;
-        _previewSceneSource = null;
-        _previewSceneId = null;
-        _previewWindowHandle = IntPtr.Zero;
-        _previewCanvasWidth = 0;
-        _previewCanvasHeight = 0;
-
-        try
-        {
-            display?.Dispose();
-        }
-        catch
-        {
-        }
-
-        try
-        {
-            view?.Dispose();
-        }
-        catch
-        {
-        }
-
-        try
-        {
-            sceneSource?.Dispose();
-        }
-        catch
-        {
-        }
-    }
-
-    private void RenderPreviewFrame(ObsDisplayFrame frame)
-    {
-        var sceneSource = _previewSceneSource;
-        if (sceneSource == null) return;
-
-        ObsPreviewGraphics.RenderScene(
-            frame,
-            sceneSource,
-            _previewCanvasWidth,
-            _previewCanvasHeight);
     }
 
     private static void TryRollbackSource(ObsSource? source, ObsSceneItem? item)
