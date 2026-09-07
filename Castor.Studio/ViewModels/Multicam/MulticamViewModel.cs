@@ -269,6 +269,21 @@ public partial class MulticamViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSpotlightLayout));
     }
 
+    /// <summary>
+    /// Puts one scene where another sits, reordering the workspace itself so the
+    /// order holds on every page rather than only on this one.
+    /// </summary>
+    public void MoveScene(SceneItemViewModel moved, SceneItemViewModel target)
+    {
+        if (ReferenceEquals(moved, target)) return;
+
+        var from = Scenes.IndexOf(moved);
+        var to = Scenes.IndexOf(target);
+        if (from < 0 || to < 0) return;
+
+        Scenes.Move(from, to);
+    }
+
     [RelayCommand]
     private void UseGridLayout() => Layout = MulticamLayout.Grid;
 

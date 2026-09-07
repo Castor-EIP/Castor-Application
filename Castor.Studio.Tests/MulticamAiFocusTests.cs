@@ -164,4 +164,51 @@ public sealed class MulticamAiFocusTests
         Assert.Same(secondTile, Assert.Single(viewModel.Tiles));
     }
 
+    [Fact]
+    public void Moving_a_scene_reorders_the_workspace_itself()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(workspace);
+        var first = workspace.CreateScene("Plateau");
+        var second = workspace.CreateScene("Caméra");
+        var third = workspace.CreateScene("Public");
+
+        viewModel.MoveScene(third, first);
+
+        // The workspace collection is what moves, so the order holds on every page
+        // rather than only on this one.
+        Assert.Equal([third, first, second], workspace.Scenes);
+        Assert.Equal([third, first, second], viewModel.Tiles.Select(tile => tile.Scene));
+    }
+
+    [Fact]
+    public void Moving_a_scene_keeps_the_tiles_alive()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(workspace);
+        var first = workspace.CreateScene("Plateau");
+        var second = workspace.CreateScene("Caméra");
+        var firstTile = viewModel.Tiles[0];
+        var secondTile = viewModel.Tiles[1];
+
+        viewModel.MoveScene(second, first);
+
+        // Reordering must not restart the previews behind the tiles.
+        Assert.Same(secondTile, viewModel.Tiles[0]);
+        Assert.Same(firstTile, viewModel.Tiles[1]);
+    }
+
+    [Fact]
+    public void Dropping_a_scene_on_itself_changes_nothing()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(workspace);
+        var first = workspace.CreateScene("Plateau");
+        var second = workspace.CreateScene("Caméra");
+
+        viewModel.MoveScene(first, first);
+
+        Assert.Equal([first, second], workspace.Scenes);
+    }
+
 }
