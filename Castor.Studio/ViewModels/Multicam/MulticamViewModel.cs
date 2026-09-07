@@ -113,7 +113,34 @@ public partial class MulticamViewModel : ViewModelBase
 
     // A multiview fills the page rather than flowing cards: the column count follows
     // the scene count so every tile stays as large as it can be.
-    public int GridColumns => Tiles.Count <= 1 ? 1 : Tiles.Count <= 4 ? 2 : Tiles.Count <= 9 ? 3 : 4;
+    public int GridColumns => ColumnChoice > 0
+        ? ColumnChoice
+        : Tiles.Count <= 1 ? 1 : Tiles.Count <= 4 ? 2 : Tiles.Count <= 9 ? 3 : 4;
+
+    // 0 means the column count follows the scene count; anything else pins it.
+    [ObservableProperty] private int _columnChoice;
+    [ObservableProperty] private MulticamLayout _layout = MulticamLayout.Grid;
+
+    public bool IsGridLayout => Layout == MulticamLayout.Grid;
+    public bool IsSpotlightLayout => Layout == MulticamLayout.Spotlight;
+
+    // The spotlight renders the scene on air on a surface of its own rather than
+    // borrowing a tile: a preview per window is exactly what the runtime supports,
+    // and it saves keeping a second, filtered collection of tiles in step.
+    public SceneItemViewModel? SpotlightScene => _workspace.ActiveScene;
+
+    public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
+
+    [ObservableProperty] private int _baseCanvasWidth = 1920;
+    [ObservableProperty] private int _baseCanvasHeight = 1080;
+
+    public string SpotlightPlaceholderText => !_previewRuntime.IsAvailable
+        ? _previewRuntime.UnavailableMessage
+        : SpotlightScene == null
+            ? "Aucune scène à l'antenne."
+            : !StudioWorkspaceViewModel.HasVideoSource(SpotlightScene)
+                ? "Pas de source vidéo"
+                : "";
 
     [ObservableProperty] private bool _isAiOff = true;
     [ObservableProperty] private bool _isAiAgent;
@@ -135,6 +162,7 @@ public partial class MulticamViewModel : ViewModelBase
         _workspace = workspace;
         _previewRuntime = previewRuntime ?? new UnavailableScenePreviewRuntime();
         _settingsService = settingsService;
+        (BaseCanvasWidth, BaseCanvasHeight) = CurrentBaseCanvas();
         RefreshTiles();
         Scenes.CollectionChanged += (_, _) => RefreshTiles();
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
@@ -190,11 +218,15 @@ public partial class MulticamViewModel : ViewModelBase
         if (e.PropertyName != nameof(StudioWorkspaceViewModel.ActiveScene)) return;
 
         foreach (var tile in Tiles) tile.NotifyOnAirChanged();
+        OnPropertyChanged(nameof(SpotlightScene));
+        OnPropertyChanged(nameof(SpotlightPlaceholderText));
     }
 
     private void OnSettingsSaved(object? sender, EventArgs e)
     {
         var (width, height) = CurrentBaseCanvas();
+        BaseCanvasWidth = width;
+        BaseCanvasHeight = height;
         foreach (var tile in Tiles) tile.ApplyBaseCanvas(width, height);
     }
 
@@ -228,6 +260,23 @@ public partial class MulticamViewModel : ViewModelBase
 
     /// <summary>Drops every AI marking, for when the pipeline stops or is turned off.</summary>
     public void ClearAiFocus() => SetAiFocus(null);
+
+    partial void OnColumnChoiceChanged(int value) => OnPropertyChanged(nameof(GridColumns));
+
+    partial void OnLayoutChanged(MulticamLayout value)
+    {
+        OnPropertyChanged(nameof(IsGridLayout));
+        OnPropertyChanged(nameof(IsSpotlightLayout));
+    }
+
+    [RelayCommand]
+    private void UseGridLayout() => Layout = MulticamLayout.Grid;
+
+    [RelayCommand]
+    private void UseSpotlightLayout() => Layout = MulticamLayout.Spotlight;
+
+    [RelayCommand]
+    private void SetColumns(int columns) => ColumnChoice = columns;
 
     [RelayCommand]
     private void SetAiOff()
