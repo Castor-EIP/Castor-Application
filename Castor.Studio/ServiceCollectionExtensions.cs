@@ -60,8 +60,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(provider => new StudioViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(), provider.GetRequiredService<IStudioRuntime>(),
-            provider.GetRequiredService<IRecordingRuntime>(), provider.GetRequiredService<IProviderStore>(),
-            provider.GetRequiredService<SettingsService>()));
+            provider.GetRequiredService<IScenePreviewRuntime>(), provider.GetRequiredService<IRecordingRuntime>(),
+            provider.GetRequiredService<IProviderStore>(), provider.GetRequiredService<SettingsService>()));
         services.AddSingleton(provider => new ScenesViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(), provider.GetRequiredService<IStudioRuntime>(),
             provider.GetRequiredService<IScenePreviewRuntime>(),

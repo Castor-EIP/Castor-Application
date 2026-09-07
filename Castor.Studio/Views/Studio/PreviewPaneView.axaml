@@ -8,11 +8,18 @@
 	<Panel Background="Black">
 
 		<controls:StudioPreview Scene="{Binding ActiveScene}"
+                                PreviewRuntime="{Binding PreviewRuntime}"
+                                BaseCanvasWidth="{Binding BaseCanvasWidth}"
+                                BaseCanvasHeight="{Binding BaseCanvasHeight}"
                                 Message="{Binding PreviewPlaceholderText}"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch" />
 
-		<!-- Placeholder quand rien ne peut être affiché -->
+		<!-- Recouvre StudioPreview quand rien ne peut être affiché. StudioPreview a son
+		     propre message interne pour "pas de scène"/"moteur indisponible", mais pas pour
+		     "scène sans source vidéo" (ScenesViewModel n'a pas ce cas) : ce panneau reste
+		     nécessaire pour ce message-là, qui recouvre alors un rendu natif vide plutôt
+		     qu'absent. -->
 		<StackPanel IsVisible="{Binding ShowPreviewPlaceholder}"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Spacing="6">

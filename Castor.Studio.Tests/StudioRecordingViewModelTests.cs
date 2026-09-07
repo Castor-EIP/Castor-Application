@@ -28,7 +28,8 @@ public sealed class StudioRecordingViewModelTests
             workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+                workspace, new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(), recordingRuntime,
+                new FakeProviderStore(), settingsService);
 
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
@@ -69,7 +70,8 @@ public sealed class StudioRecordingViewModelTests
             workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+                workspace, new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(), recordingRuntime,
+                new FakeProviderStore(), settingsService);
 
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
@@ -118,7 +120,8 @@ public sealed class StudioRecordingViewModelTests
                 StartResult = StudioRuntimeResult.Failure("échec output")
             };
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+                workspace, new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(), recordingRuntime,
+                new FakeProviderStore(), settingsService);
 
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
@@ -144,7 +147,8 @@ public sealed class StudioRecordingViewModelTests
             workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+                workspace, new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(), recordingRuntime,
+                new FakeProviderStore(), settingsService);
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
             recordingRuntime.RaiseState(false, "Disque plein");

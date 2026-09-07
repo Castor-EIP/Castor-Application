@@ -85,11 +85,20 @@ affichée.
 
 ### Aperçu natif
 
-L'aperçu est encore un composant Avalonia sans contenu natif. Lorsqu'un hôte natif
-(`NativeControlHost` sur une fenêtre enfant DirectX) sera introduit, il survivra au
-détachement : Dock recycle la vue d'un panneau au lieu de la reconstruire, et déplace donc
-la même instance entre la fenêtre principale et la fenêtre flottante. Ce recyclage est
-partagé par fabrique, ce qui suppose une seule `StudioDockFactory` pour l'espace de travail.
+Le panneau Aperçu affiche la scène active (`StudioWorkspaceViewModel.ActiveScene`, partagée
+avec la page Scènes) via `StudioPreview`, qui héberge un `ObsPreviewHost` : un
+`NativeControlHost` avec un vrai HWND enfant, sur lequel `LibObsSceneRuntime` dessine
+directement. Il survit au détachement : Dock recycle la vue d'un panneau au lieu de la
+reconstruire, et déplace donc la même instance entre la fenêtre principale et la fenêtre
+flottante. Ce recyclage est partagé par fabrique, ce qui suppose une seule
+`StudioDockFactory` pour l'espace de travail.
+
+`LibObsSceneRuntime` ne pilote qu'une seule surface d'aperçu native pour toute
+l'application : la page Scènes et le panneau Studio affichent la même scène, mais un seul
+des deux peut effectivement la dessiner à un instant donné si les deux sont attachés en même
+temps (par exemple un panneau Aperçu détaché puis la page Scènes ouverte à côté) — celui qui
+démarre en second prend la main, l'autre reste figé sur sa dernière image sans erreur
+visible.
 Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
 fichiers média, et autorise plusieurs sources dans une scène. L'enregistrement produit
 des fichiers MP4, MKV ou WebM depuis la scène active dans le dossier configuré.

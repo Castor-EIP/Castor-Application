@@ -18,6 +18,7 @@ public partial class StudioViewModel : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IStudioRuntime _runtime;
+    private readonly IScenePreviewRuntime _previewRuntime;
     private readonly IRecordingRuntime _recordingRuntime;
     private readonly IProviderStore _providerStore;
     private readonly SettingsService _settingsService;
@@ -40,8 +41,16 @@ public partial class StudioViewModel : ViewModelBase
         }
     }
 
-    public string PreviewPlaceholderText => !_runtime.IsAvailable
-        ? _runtime.UnavailableMessage
+    // Backs the native preview host in PreviewPaneView.axaml - same engine and same base
+    // resolution tracking as ScenesViewModel. Both pages preview through the one native
+    // display LibObsSceneRuntime hosts, so they always show the same picture.
+    public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
+
+    [ObservableProperty] private int _baseCanvasWidth = 1920;
+    [ObservableProperty] private int _baseCanvasHeight = 1080;
+
+    public string PreviewPlaceholderText => !_previewRuntime.IsAvailable
+        ? _previewRuntime.UnavailableMessage
         : ActiveScene == null
             ? "Aucune scène active — créez-en une dans l'onglet Scènes."
             : !StudioWorkspaceViewModel.HasVideoSource(ActiveScene)
@@ -69,21 +78,25 @@ public partial class StudioViewModel : ViewModelBase
     internal StudioViewModel(
         StudioWorkspaceViewModel workspace,
         IStudioRuntime runtime,
+        IScenePreviewRuntime previewRuntime,
         IRecordingRuntime recordingRuntime,
         IProviderStore providerStore,
         SettingsService settingsService)
     {
         _workspace = workspace;
         _runtime = runtime;
+        _previewRuntime = previewRuntime;
         _recordingRuntime = recordingRuntime;
         _providerStore = providerStore;
         _settingsService = settingsService;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
         _recordingRuntime.StateChanged += OnRecordingRuntimeStateChanged;
+        _settingsService.SettingsSaved += OnSettingsSaved;
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
         RefreshProviderState(StreamPlatformIndex);
         RefreshOutputInfo();
+        RefreshBaseCanvasSize();
     }
 
     public void RefreshOutputInfo()
@@ -96,13 +109,15 @@ public partial class StudioViewModel : ViewModelBase
             : settings.OutputPath;
     }
 
-    public async Task EnsurePreviewRunning(CancellationToken cancellationToken = default)
+    // Keeps the native preview's aspect ratio correct when the base resolution changes,
+    // same as ScenesViewModel's own OnSettingsSaved.
+    private void OnSettingsSaved(object? sender, EventArgs e) => RefreshBaseCanvasSize();
+
+    private void RefreshBaseCanvasSize()
     {
-        RefreshOutputInfo();
-        NotifyPreviewChanged();
-        if (ActiveScene == null || !StudioWorkspaceViewModel.HasVideoSource(ActiveScene)) return;
-        var result = await _runtime.StartPreviewAsync(ActiveScene.ToDefinition(), cancellationToken);
-        if (!result.IsSuccess) StreamError = result.Message;
+        var baseResolution = BaseResolutionFromIndex(_settingsService.Load().SelectedBaseResolutionIndex);
+        BaseCanvasWidth = baseResolution.Width;
+        BaseCanvasHeight = baseResolution.Height;
     }
 
     [RelayCommand]
