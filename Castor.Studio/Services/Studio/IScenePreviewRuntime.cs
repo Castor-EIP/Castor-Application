@@ -10,6 +10,9 @@ public interface IScenePreviewRuntime
 
     event EventHandler? PreviewResetRequested;
 
+    // windowHandle identifies which native surface is asking: the runtime can host one
+    // native preview per window at once, so a Studio panel and the Scenes page (or two
+    // detached panels) each get their own live display instead of fighting over one.
     Task<StudioRuntimeResult> StartPreviewAsync(
         SceneDefinition scene,
         IntPtr windowHandle,
@@ -17,9 +20,10 @@ public interface IScenePreviewRuntime
         uint height,
         CancellationToken cancellationToken);
 
-    void ResizePreview(uint width, uint height);
+    void ResizePreview(IntPtr windowHandle, uint width, uint height);
 
     Task<StudioRuntimeResult> StopPreviewAsync(
+        IntPtr windowHandle,
         Guid sceneId,
         CancellationToken cancellationToken);
 }

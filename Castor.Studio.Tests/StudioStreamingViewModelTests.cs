@@ -210,6 +210,7 @@ public sealed class StudioStreamingViewModelTests
         var viewModel = new StudioViewModel(
             workspace,
             new FakeStudioRuntime(),
+            new UnavailableScenePreviewRuntime(),
             recordingRuntime,
             streamingRuntime,
             providerStore,
@@ -281,6 +282,9 @@ public sealed class StudioStreamingViewModelTests
 
         public Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
+
+        public StudioRuntimeResult SwitchRecordingScene(Guid sceneId) =>
+            StudioRuntimeResult.Success();
     }
 
     private sealed class FakeProviderStore(ProviderSettings? provider) : IProviderStore

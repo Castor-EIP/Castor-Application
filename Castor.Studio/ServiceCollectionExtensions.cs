@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
     public static void AddCommonServices(this IServiceCollection services, IClassicDesktopStyleApplicationLifetime desktop)
     {
         services.AddSingleton(desktop);
+
         services.AddSingleton<HttpClient>();
         services.AddSingleton<ITokenStore, InMemoryTokenStore>();
         services.AddSingleton<IProviderStore, ProviderStore>();
@@ -38,8 +39,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DockLayoutService>();
 
         services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();
-        services.AddSingleton<LibObsSceneRuntime>(provider =>
-            new LibObsSceneRuntime(provider.GetRequiredService<SettingsService>()));
+
+        services.AddSingleton(provider =>
+            new LibObsSceneRuntime(provider.GetRequiredService<SettingsService>()
+        ));
+
         services.AddSingleton<ISceneRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<ISourceRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<IRecordingRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
@@ -60,25 +64,46 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SettingsViewModel>();
 
         services.AddSingleton(provider => new StudioViewModel(
-            provider.GetRequiredService<StudioWorkspaceViewModel>(), provider.GetRequiredService<IStudioRuntime>(),
-            provider.GetRequiredService<IRecordingRuntime>(), provider.GetRequiredService<IStreamingRuntime>(),
-            provider.GetRequiredService<IProviderStore>(),
-            provider.GetRequiredService<SettingsService>()));
-        services.AddSingleton(provider => new ScenesViewModel(
-            provider.GetRequiredService<StudioWorkspaceViewModel>(), provider.GetRequiredService<IStudioRuntime>(),
+            provider.GetRequiredService<StudioWorkspaceViewModel>(),
+            provider.GetRequiredService<IStudioRuntime>(),
             provider.GetRequiredService<IScenePreviewRuntime>(),
-            provider.GetRequiredService<ISceneRuntime>(), provider.GetRequiredService<ISourceRuntime>(),
-            provider.GetRequiredService<IFilePickerService>(), provider.GetRequiredService<ISceneCollectionService>(),
-            provider.GetRequiredService<IAddSourceDialogViewModelFactory>(), provider.GetRequiredService<IAddSourceDialogService>(),
-            provider.GetRequiredService<SettingsService>()));
+            provider.GetRequiredService<IRecordingRuntime>(),
+            provider.GetRequiredService<IStreamingRuntime>(),
+            provider.GetRequiredService<IProviderStore>(),
+            provider.GetRequiredService<SettingsService>()
+        ));
+
+        services.AddSingleton(provider => new ScenesViewModel(
+            provider.GetRequiredService<StudioWorkspaceViewModel>(),
+            provider.GetRequiredService<IStudioRuntime>(),
+            provider.GetRequiredService<IScenePreviewRuntime>(),
+            provider.GetRequiredService<ISceneRuntime>(),
+            provider.GetRequiredService<ISourceRuntime>(),
+            provider.GetRequiredService<IFilePickerService>(),
+            provider.GetRequiredService<ISceneCollectionService>(),
+            provider.GetRequiredService<IAddSourceDialogViewModelFactory>(),
+            provider.GetRequiredService<IAddSourceDialogService>(),
+            provider.GetRequiredService<SettingsService>()
+        ));
+
         services.AddSingleton(provider => new MulticamViewModel(
-            provider.GetRequiredService<IAiAnalysisClient>(), provider.GetRequiredService<StudioWorkspaceViewModel>()));
+            provider.GetRequiredService<IAiAnalysisClient>(),
+            provider.GetRequiredService<StudioWorkspaceViewModel>()
+        ));
+
         services.AddSingleton(provider => new StudioDockViewModel(
-            provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<DockLayoutService>()));
+            provider.GetRequiredService<StudioViewModel>(),
+            provider.GetRequiredService<DockLayoutService>()
+        ));
+
         services.AddSingleton(provider => new MainViewModel(
-            provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<StudioDockViewModel>(),
-            provider.GetRequiredService<MulticamViewModel>(), provider.GetRequiredService<ScenesViewModel>(),
-            provider.GetRequiredService<SettingsViewModel>(), provider.GetRequiredService<StudioWorkspaceViewModel>(),
-            provider.GetRequiredService<IClassicDesktopStyleApplicationLifetime>()));
+            provider.GetRequiredService<StudioViewModel>(),
+            provider.GetRequiredService<StudioDockViewModel>(),
+            provider.GetRequiredService<MulticamViewModel>(),
+            provider.GetRequiredService<ScenesViewModel>(),
+            provider.GetRequiredService<SettingsViewModel>(),
+            provider.GetRequiredService<StudioWorkspaceViewModel>(),
+            provider.GetRequiredService<IClassicDesktopStyleApplicationLifetime>()
+        ));
     }
 }
