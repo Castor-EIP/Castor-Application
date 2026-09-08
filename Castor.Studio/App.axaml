@@ -1,0 +1,88 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:CastorApplication.Views"
+             xmlns:settingsViews="using:CastorApplication.Views.Settings"
+             xmlns:settingsSectionViews="using:CastorApplication.Views.Settings.Sections"
+             xmlns:scenesVm="using:CastorApplication.ViewModels.Scenes"
+             xmlns:multicamVm="using:CastorApplication.ViewModels.Multicam"
+             xmlns:settingsVm="using:CastorApplication.ViewModels.Settings"
+             xmlns:settingsSectionVm="using:CastorApplication.ViewModels.Settings.Sections"
+             xmlns:shellVm="using:CastorApplication.ViewModels.Shell"
+             xmlns:shellViews="using:CastorApplication.Views.Shell"
+             xmlns:docking="using:CastorApplication.Docking"
+             xmlns:studioViews="using:CastorApplication.Views.Studio"
+             xmlns:mcViews="using:CastorApplication.Views.Multicam"
+             x:Class="CastorApplication.App"
+             RequestedThemeVariant="Dark">
+    <Application.DataTemplates>
+        <DataTemplate DataType="{x:Type shellVm:StudioDockViewModel}"><shellViews:StudioDockView/></DataTemplate>
+        <DataTemplate DataType="{x:Type scenesVm:ScenesViewModel}"><views:ScenesView/></DataTemplate>
+        <DataTemplate DataType="{x:Type multicamVm:MulticamViewModel}"><views:MulticamView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsVm:SettingsViewModel}"><settingsViews:SettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:GeneralSettingsViewModel}"><settingsSectionViews:GeneralSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:VideoSettingsViewModel}"><settingsSectionViews:VideoSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:AudioSettingsViewModel}"><settingsSectionViews:AudioSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:StreamingSettingsViewModel}"><settingsSectionViews:StreamingSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:OutputSettingsViewModel}"><settingsSectionViews:OutputSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:AccountsSettingsViewModel}"><settingsSectionViews:AccountsSettingsView/></DataTemplate>
+
+        <!-- StudioViewModel backs four distinct panes, so these key off the dockable's
+             own (marker) type instead of its Context to pick the right pane view. -->
+        <DataTemplate DataType="{x:Type docking:MulticamAiTool}"><mcViews:MulticamAiBarView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:MulticamDisplayTool}"><mcViews:MulticamDisplayView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:PreviewDocument}"><studioViews:PreviewPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:SceneSelectorTool}"><studioViews:SceneSelectorPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:StatusTool}"><studioViews:StatusPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:StreamControlsTool}"><studioViews:StreamControlsPaneView DataContext="{Binding Context}"/></DataTemplate>
+    </Application.DataTemplates>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Styles/Colors.axaml"/>
+                <ResourceInclude Source="/Styles/DockMenus.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Defaults for the "show dock titles" setting; AvaloniaDockChromeService
+                 rewrites both at runtime. Declared here (not in a Styles file) so the
+                 runtime write lands in the same dictionary the defaults come from. -->
+            <x:Boolean x:Key="CastorDockShowTitles">True</x:Boolean>
+            <x:Boolean x:Key="DockDocumentControlTabStripVisible">True</x:Boolean>
+
+            <!-- Dock ships its menus and drag hints in English. These keys override the ones
+                 declared by DockFluentTheme; "Détacher" is how a panel is pulled out of the
+                 window without dragging it, so it is worth reading in the app's language. -->
+            <!-- Added by Castor to both panel menus (Styles/DockMenus.axaml). -->
+            <x:String x:Key="CastorDockReturnHomeString">_Rattacher</x:String>
+
+            <x:String x:Key="ToolChromeControlFloatString">_Détacher</x:String>
+            <x:String x:Key="ToolChromeControlDockString">_Ancrer</x:String>
+            <x:String x:Key="ToolChromeControlAutoHideString">_Masquer automatiquement</x:String>
+            <x:String x:Key="ToolChromeControlDockAsDocumentString">Ancrer comme onglet</x:String>
+            <x:String x:Key="ToolChromeControlCloseString">_Fermer</x:String>
+
+            <x:String x:Key="ToolTabStripItemFloatString">_Détacher</x:String>
+            <x:String x:Key="ToolTabStripItemFloatAllString">Tout détacher</x:String>
+            <x:String x:Key="ToolTabStripItemDockString">_Ancrer</x:String>
+            <x:String x:Key="ToolTabStripItemAutoHideString">_Masquer automatiquement</x:String>
+            <x:String x:Key="ToolTabStripItemDockAsDocumentString">Ancrer comme onglet</x:String>
+            <x:String x:Key="ToolTabStripItemCloseString">_Fermer</x:String>
+
+            <x:String x:Key="DocumentTabStripItemFloatString">_Détacher</x:String>
+            <x:String x:Key="DocumentTabStripItemFloatAllString">Tout détacher</x:String>
+            <x:String x:Key="DocumentTabStripItemCloseString">_Fermer</x:String>
+
+            <!-- Badge that follows the pointer while a panel is being dragged. -->
+            <x:String x:Key="DragPreviewControlDockString">Ancrer</x:String>
+            <x:String x:Key="DragPreviewControlFloatString">Détacher</x:String>
+            <x:String x:Key="DragPreviewControlNoneString">Impossible</x:String>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme/>
+        <DockFluentTheme/>
+        <StyleInclude Source="/Styles/DockTheme.axaml"/>
+        <StyleInclude Source="/Styles/Controls.axaml"/>
+    </Application.Styles>
+</Application>

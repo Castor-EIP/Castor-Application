@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Multicam"
+             xmlns:controls="using:CastorApplication.Controls"
+             xmlns:mcViews="using:CastorApplication.Views.Multicam"
+             x:Class="CastorApplication.Views.MulticamView"
+             x:DataType="vm:MulticamViewModel">
+
+	<Grid Background="{DynamicResource AppBg}">
+
+		<Grid RowDefinitions="Auto, *" Margin="16">
+			<Border Grid.Row="0"
+                    IsVisible="{Binding AiError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    Background="#3b1219" BorderBrush="#7f1d1d" BorderThickness="1"
+                    CornerRadius="6" Padding="10,7" Margin="0,0,0,12">
+				<TextBlock Text="{Binding AiError}" Foreground="{StaticResource StatusErrorBrush}"
+                           FontSize="12" TextWrapping="Wrap"/>
+			</Border>
+
+			<!-- La page est un espace ancrable : soit l'affichage entier en un panneau,
+			     soit un panneau par scène. Dans les deux cas on peut le sortir. -->
+			<DockControl Grid.Row="1" Layout="{Binding DockLayout}"
+                         Background="{DynamicResource AppBg}"/>
+		</Grid>
+
+	</Grid>
+</UserControl>

@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:settings="using:CastorApplication.ViewModels.Settings"
+             x:Class="CastorApplication.Views.Settings.Components.SettingsNavItem"
+             x:DataType="settings:SettingsSectionItem">
+
+	<Grid>
+
+		<!-- SELECTED -->
+		<Border IsVisible="{Binding IsSelected}"
+                Background="{DynamicResource AppAccentBg2}"
+                BorderBrush="{DynamicResource AppAccentFg}"
+                BorderThickness="3,0,0,0">
+
+			<TextBlock Text="{Binding Title}"
+                       Foreground="{DynamicResource AppFg1}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Margin="15,10"/>
+		</Border>
+
+		<!-- NORMAL -->
+		<Button IsVisible="{Binding !IsSelected}"
+                Classes="settings-nav"
+                Content="{Binding Title}"
+                Command="{Binding SelectCommand}"
+                CommandParameter="{Binding}" />
+
+	</Grid>
+
+</UserControl>
