@@ -231,11 +231,11 @@ internal sealed class LibObsIndependentSceneOutputRuntime : IIndependentSceneOut
         var state = failed
             ? IndependentSceneOutputState.Error
             : args.State switch
-        {
-            ObsOutputState.Reconnecting => IndependentSceneOutputState.Reconnecting,
-            ObsOutputState.Stopped => IndependentSceneOutputState.Stopped,
-            _ => IndependentSceneOutputState.Started
-        };
+            {
+                ObsOutputState.Reconnecting => IndependentSceneOutputState.Reconnecting,
+                ObsOutputState.Stopped => IndependentSceneOutputState.Stopped,
+                _ => IndependentSceneOutputState.Started
+            };
         var message = args.Error ?? output.LastError ?? "";
         StateChanged?.Invoke(this, new IndependentSceneOutputStateChangedEventArgs(sceneId, state, message));
 
