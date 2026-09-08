@@ -99,7 +99,14 @@ public partial class ScenesViewModel : ViewModelBase
     partial void OnSelectedSceneChanged(SceneItemViewModel? oldValue, SceneItemViewModel? newValue)
     {
         if (oldValue != null) oldValue.IsSelected = false;
-        if (newValue != null) newValue.IsSelected = true;
+        if (newValue != null)
+        {
+            newValue.IsSelected = true;
+            // Afficher une scène, c'est relire son empilement dans le moteur : l'ordre survit
+            // ainsi à un rechargement sans qu'on l'ait mémorisé de notre côté.
+            SyncSourceOrder(newValue);
+        }
+
         OnPropertyChanged(nameof(PreviewPlaceholderText));
     }
 
@@ -392,7 +399,101 @@ public partial class ScenesViewModel : ViewModelBase
         }
 
         scene.Sources.Remove(source);
+        SyncSourceOrder(scene);
         SourceOperationStatus = "";
+    }
+
+    // ── Empilement des sources (z-order) ─────────────────────────────────────
+    //
+    // L'ordre appartient au moteur. Chaque geste lui est transmis, puis la liste affichée est
+    // réalignée sur ce qu'il renvoie : aucun ordre local n'est entretenu ici, donc aucun ne
+    // peut diverger. Rang 0 = premier plan.
+
+    [RelayCommand(CanExecute = nameof(CanRaiseSource))]
+    private void RaiseSource(SourceItemViewModel source) => MoveSourceBy(source, -1);
+
+    private bool CanRaiseSource(SourceItemViewModel? source) =>
+        source != null && SelectedScene != null && SelectedScene.Sources.IndexOf(source) > 0;
+
+    [RelayCommand(CanExecute = nameof(CanLowerSource))]
+    private void LowerSource(SourceItemViewModel source) => MoveSourceBy(source, 1);
+
+    private bool CanLowerSource(SourceItemViewModel? source)
+    {
+        var scene = SelectedScene;
+        if (source == null || scene == null) return false;
+
+        var index = scene.Sources.IndexOf(source);
+        return index >= 0 && index < scene.Sources.Count - 1;
+    }
+
+    /// <summary>
+    /// Lâcher <paramref name="moved"/> sur <paramref name="target"/> lui donne le rang de la
+    /// cible. Laisse la vue traiter un drop sans qu'elle ait à calculer un rang elle-même.
+    /// </summary>
+    internal void MoveSourceHere(SourceItemViewModel moved, SourceItemViewModel target)
+    {
+        var scene = SelectedScene;
+        if (scene == null || ReferenceEquals(moved, target)) return;
+
+        var targetIndex = scene.Sources.IndexOf(target);
+        if (targetIndex < 0) return;
+
+        MoveSourceTo(scene, moved, targetIndex);
+    }
+
+    private void MoveSourceBy(SourceItemViewModel source, int offset)
+    {
+        var scene = SelectedScene;
+        if (scene == null) return;
+
+        var index = scene.Sources.IndexOf(source);
+        if (index < 0) return;
+
+        MoveSourceTo(scene, source, index + offset);
+    }
+
+    private void MoveSourceTo(SceneItemViewModel scene, SourceItemViewModel source, int layerIndex)
+    {
+        if (layerIndex < 0 || layerIndex >= scene.Sources.Count) return;
+        if (scene.Sources.IndexOf(source) == layerIndex) return;
+
+        var result = _sourceRuntime.MoveSource(scene.Id, source.Id, layerIndex);
+        // Réussite ou refus, on se recale sur le moteur : un refus doit remettre la liste
+        // telle qu'elle est réellement rendue, pas telle qu'on l'espérait.
+        SyncSourceOrder(scene);
+        SourceOperationStatus = result.IsSuccess ? "" : result.Message;
+    }
+
+    private void SyncSourceOrder(SceneItemViewModel scene)
+    {
+        var order = _sourceRuntime.GetSourceOrder(scene.Id);
+        if (order.IsSuccess)
+        {
+            // On réordonne seulement : ajouts et suppressions ont leurs propres chemins.
+            var target = 0;
+            foreach (var sourceId in order.SourceIds)
+            {
+                var current = IndexOfSource(scene, sourceId);
+                if (current < 0) continue;
+                if (current != target) scene.Sources.Move(current, target);
+                target++;
+            }
+        }
+
+        // Les extrémités de la pile bougent avec l'ordre, les boutons doivent suivre.
+        RaiseSourceCommand.NotifyCanExecuteChanged();
+        LowerSourceCommand.NotifyCanExecuteChanged();
+    }
+
+    private static int IndexOfSource(SceneItemViewModel scene, Guid sourceId)
+    {
+        for (var index = 0; index < scene.Sources.Count; index++)
+        {
+            if (scene.Sources[index].Id == sourceId) return index;
+        }
+
+        return -1;
     }
 
     [RelayCommand]
@@ -473,6 +574,9 @@ public partial class ScenesViewModel : ViewModelBase
 
         definition.Name = result.EffectiveName;
         _workspace.AddSource(scene, definition);
+        // Le moteur empile la nouvelle source au premier plan : on relit plutôt que de
+        // supposer où elle a atterri.
+        SyncSourceOrder(scene);
         SourceOperationStatus = "";
     }
 
