@@ -40,6 +40,13 @@
 			<Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
 		</Style>
 
+		<Style Selector="Button.scene-btn.selected /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+		</Style>
+		<Style Selector="Button.scene-btn.selected:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+		</Style>
+
 	</UserControl.Styles>
 
 	<Grid ColumnDefinitions="240, 1, *" Background="{DynamicResource AppBg}">
@@ -273,7 +280,7 @@
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
 									</Border>
 
-									<Button Grid.Column="2" Classes="scene-btn"
+									<Button Grid.Column="2" Classes="scene-btn" Classes.selected="{Binding IsSelected}"
                                             Command="{Binding #ScenesRoot.DataContext.SelectSceneCommand}"
                                             CommandParameter="{Binding}">
 										<Panel>
@@ -305,6 +312,9 @@
                                                     Padding="14,10">
 												<StackPanel Orientation="Horizontal" Spacing="8">
 													<Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center"/>
+													<TextBlock Text="▶" IsVisible="{Binding IsSelected}"
+                                                               Foreground="{DynamicResource AppAccentFg}" FontSize="10"
+                                                               VerticalAlignment="Center"/>
 													<TextBlock Text="{Binding Name}"
                                                                Foreground="{DynamicResource AppFg3}" FontSize="13"/>
 												</StackPanel>

@@ -68,6 +68,8 @@ public sealed class ScenesViewModelRuntimeTests
         // on air, is not this page's to reassign.
         var second = CreateScene(viewModel, "Deuxième");
         Assert.Same(second, viewModel.SelectedScene);
+        Assert.False(onAir.IsSelected);
+        Assert.True(second.IsSelected);
         Assert.Same(onAir, workspace.ActiveScene);
 
         // Browsing back to it - e.g. to adjust it mid-recording - must not touch ActiveScene
@@ -75,6 +77,8 @@ public sealed class ScenesViewModelRuntimeTests
         workspace.SetRecordingState(true);
         viewModel.SelectSceneCommand.Execute(onAir);
         Assert.Same(onAir, viewModel.SelectedScene);
+        Assert.True(onAir.IsSelected);
+        Assert.False(second.IsSelected);
         Assert.Same(onAir, workspace.ActiveScene);
     }
 
@@ -139,6 +143,8 @@ public sealed class ScenesViewModelRuntimeTests
         viewModel.SelectSceneCommand.Execute(second);
         // Selecting "second" for editing never moved ActiveScene off "first" - see
         // Creating_or_selecting_a_scene_does_not_disturb_what_is_on_air.
+        Assert.False(first.IsSelected);
+        Assert.True(second.IsSelected);
 
         runtime.Remove = _ => SceneRuntimeResult.Failure("suppression refusée");
         viewModel.DeleteSceneCommand.Execute(second);
@@ -152,6 +158,8 @@ public sealed class ScenesViewModelRuntimeTests
         viewModel.DeleteSceneCommand.Execute(second);
 
         Assert.Single(viewModel.Scenes);
+        Assert.Same(first, viewModel.SelectedScene);
+        Assert.True(first.IsSelected);
         Assert.Same(first, workspace.ActiveScene);
         Assert.Equal("", viewModel.DeleteSceneError);
     }

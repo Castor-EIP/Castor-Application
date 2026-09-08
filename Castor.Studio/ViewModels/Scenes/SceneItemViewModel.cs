@@ -16,6 +16,9 @@ public partial class SceneItemViewModel : ViewModelBase
     private bool _isActive;
 
     [ObservableProperty]
+    private bool _isSelected;
+
+    [ObservableProperty]
     private bool _isLive;
 
     [ObservableProperty]

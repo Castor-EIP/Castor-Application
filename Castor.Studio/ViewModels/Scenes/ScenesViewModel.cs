@@ -98,6 +98,8 @@ public partial class ScenesViewModel : ViewModelBase
 
     partial void OnSelectedSceneChanged(SceneItemViewModel? oldValue, SceneItemViewModel? newValue)
     {
+        if (oldValue != null) oldValue.IsSelected = false;
+        if (newValue != null) newValue.IsSelected = true;
         OnPropertyChanged(nameof(PreviewPlaceholderText));
     }
 
