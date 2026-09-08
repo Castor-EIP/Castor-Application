@@ -5,7 +5,7 @@ using LibObs;
 
 namespace CastorApplication.Services.Studio;
 
-internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecordingRuntime, IStreamingRuntime, IScenePreviewRuntime, IDisposable
+internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecordingRuntime, IStreamingRuntime, IScenePreviewRuntime, IAiSceneSourceProvider, IDisposable
 {
     private const string FfmpegOutputId = "ffmpeg_output";
     private const string LibVpxVp9EncoderName = "libvpx-vp9";
@@ -58,6 +58,15 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
     public bool IsAvailable => _initialized && !_disposed;
     public string UnavailableMessage => _unavailableMessage;
+
+    public ObsSource? AcquireSceneSource(Guid sceneId)
+    {
+        lock (_gate)
+        {
+            if (!IsAvailable || !_scenes.TryGetValue(sceneId, out var scene)) return null;
+            return scene.Source;
+        }
+    }
 
     public event EventHandler<RecordingStateChangedEventArgs>? StateChanged;
     public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged;
@@ -655,6 +664,30 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 ReleaseStreamingResourcesCore();
             }
             throw;
+        }
+    }
+
+    public StudioRuntimeResult SwitchStreamingScene(Guid sceneId)
+    {
+        lock (_gate)
+        {
+            if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            if (_streamingOutput == null) return StudioRuntimeResult.Success();
+            if (_streamingSceneId == sceneId) return StudioRuntimeResult.Success();
+            if (!_scenes.TryGetValue(sceneId, out var scene))
+                return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                using (var sceneSource = scene.Source)
+                    Obs.SetOutputSource(0, sceneSource);
+                _streamingSceneId = sceneId;
+                return StudioRuntimeResult.Success();
+            }
+            catch (Exception exception)
+            {
+                return StudioRuntimeResult.Failure($"Changement de scène du live impossible : {exception.Message}");
+            }
         }
     }
 

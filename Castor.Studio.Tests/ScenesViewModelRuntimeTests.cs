@@ -58,24 +58,39 @@ public sealed class ScenesViewModelRuntimeTests
     }
 
     [Fact]
-    public void Creating_or_selecting_a_scene_does_not_disturb_what_is_on_air()
+    public void Creating_or_selecting_a_scene_updates_the_global_selection()
     {
         var workspace = new StudioWorkspaceViewModel();
         var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
         var onAir = CreateScene(viewModel, "Première");
 
-        // Creating a second scene only selects it for editing here; the first one, already
-        // on air, is not this page's to reassign.
+        // Creating a scene selects it globally so both pages show the same scene.
         var second = CreateScene(viewModel, "Deuxième");
         Assert.Same(second, viewModel.SelectedScene);
-        Assert.Same(onAir, workspace.ActiveScene);
+        Assert.Same(second, workspace.ActiveScene);
+        Assert.False(onAir.IsSelected);
+        Assert.True(second.IsSelected);
+        Assert.False(onAir.IsActive);
+        Assert.True(second.IsActive);
 
-        // Browsing back to it - e.g. to adjust it mid-recording - must not touch ActiveScene
-        // either.
+        // Selecting from Scenes updates the same workspace selection used by Studio.
         workspace.SetRecordingState(true);
         viewModel.SelectSceneCommand.Execute(onAir);
         Assert.Same(onAir, viewModel.SelectedScene);
         Assert.Same(onAir, workspace.ActiveScene);
+        Assert.True(onAir.IsSelected);
+        Assert.False(second.IsSelected);
+        Assert.True(onAir.IsActive);
+        Assert.False(second.IsActive);
+
+        // Selecting from Studio updates the Scenes page projection as well.
+        workspace.SelectScene(second);
+        Assert.Same(second, viewModel.SelectedScene);
+        Assert.Same(second, workspace.ActiveScene);
+        Assert.True(second.IsSelected);
+        Assert.True(second.IsActive);
+        Assert.False(onAir.IsSelected);
+        Assert.False(onAir.IsActive);
     }
 
     [Fact]
@@ -137,21 +152,26 @@ public sealed class ScenesViewModelRuntimeTests
         var first = CreateScene(viewModel, "Première");
         var second = CreateScene(viewModel, "Deuxième");
         viewModel.SelectSceneCommand.Execute(second);
-        // Selecting "second" for editing never moved ActiveScene off "first" - see
-        // Creating_or_selecting_a_scene_does_not_disturb_what_is_on_air.
+        // The selected scene is also the active workspace scene.
+        Assert.False(first.IsSelected);
+        Assert.True(second.IsSelected);
+        Assert.False(first.IsActive);
+        Assert.True(second.IsActive);
 
         runtime.Remove = _ => SceneRuntimeResult.Failure("suppression refusée");
         viewModel.DeleteSceneCommand.Execute(second);
 
         Assert.Equal(2, viewModel.Scenes.Count);
         Assert.Same(second, viewModel.SelectedScene);
-        Assert.Same(first, workspace.ActiveScene);
+        Assert.Same(second, workspace.ActiveScene);
         Assert.Equal("suppression refusée", viewModel.DeleteSceneError);
 
         runtime.Remove = _ => SceneRuntimeResult.Success();
         viewModel.DeleteSceneCommand.Execute(second);
 
         Assert.Single(viewModel.Scenes);
+        Assert.Same(first, viewModel.SelectedScene);
+        Assert.True(first.IsSelected);
         Assert.Same(first, workspace.ActiveScene);
         Assert.Equal("", viewModel.DeleteSceneError);
     }

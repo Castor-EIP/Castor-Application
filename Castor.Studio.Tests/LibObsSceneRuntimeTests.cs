@@ -485,6 +485,27 @@ public sealed class LibObsSceneRuntimeTests
         }
     }
 
+    [Fact]
+    public void Switching_scene_without_a_live_is_a_no_op()
+    {
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var sceneId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(sceneId, "Hors live").IsSuccess);
+
+            // Nothing is running, so there is no output to re-point - and an unknown scene
+            // is not reported as an error either, since nothing was asked of LibObs.
+            Assert.True(runtime.SwitchStreamingScene(sceneId).IsSuccess);
+            Assert.True(runtime.SwitchStreamingScene(Guid.NewGuid()).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+        }
+    }
+
     private static RecordingRequest CreateRecordingRequest(
         Guid sceneId,
         string outputPath,

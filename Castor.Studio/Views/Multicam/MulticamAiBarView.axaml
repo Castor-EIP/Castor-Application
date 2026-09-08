@@ -5,6 +5,7 @@
              x:DataType="vm:MulticamViewModel">
 
 	<Border Background="{DynamicResource AppSurface3}" Padding="16,10">
+	<StackPanel Spacing="8">
 <Grid ColumnDefinitions="Auto, *, Auto">
 
 	<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"
@@ -66,6 +67,29 @@
 		</ComboBox>
 	</StackPanel>
 
-</Grid>
+	</Grid>
+
+		<Border IsVisible="{Binding HasAiSuggestion}" Background="{DynamicResource AppSurface2}"
+				CornerRadius="6" Padding="10,7">
+			<Grid ColumnDefinitions="*, Auto">
+				<StackPanel Grid.Column="0" Spacing="2">
+					<TextBlock Text="Suggestion IA" FontSize="10" Foreground="{DynamicResource AppFg4}"/>
+					<TextBlock Text="{Binding AiSuggestionName}" FontSize="12"
+							Foreground="{DynamicResource AppFg1}" FontWeight="SemiBold"/>
+					<TextBlock Text="{Binding AiSuggestionConfidence, StringFormat='Confiance : {0}'}"
+							FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+				</StackPanel>
+				<Button Grid.Column="1" Content="APPLIQUER"
+						Command="{Binding ApplyAiSuggestionCommand}"
+						IsEnabled="{Binding !IsAiBusy}" VerticalAlignment="Center"
+						Classes="ai-mode"/>
+			</Grid>
+		</Border>
+		<TextBlock Text="Opération en cours..." IsVisible="{Binding IsAiBusy}"
+				   FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+		<TextBlock Text="{Binding AiError}"
+				   IsVisible="{Binding AiError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+				   FontSize="11" Foreground="{DynamicResource StatusErrorBrush}" TextWrapping="Wrap"/>
+	</StackPanel>
 	</Border>
 </UserControl>

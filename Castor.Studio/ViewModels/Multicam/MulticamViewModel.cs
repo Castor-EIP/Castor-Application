@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using Avalonia;
+using Avalonia.Threading;
 using CastorApplication.Models.Settings;
 using CastorApplication.Services.Ai;
 using CastorApplication.Services.Settings;
@@ -21,6 +23,7 @@ namespace CastorApplication.ViewModels.Multicam;
 public sealed partial class MulticamSceneTile : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
+    private readonly Action<MulticamSceneTile>? _selectionChanged;
 
     public SceneItemViewModel Scene { get; }
     public string Name => Scene.Name;
@@ -56,13 +59,15 @@ public sealed partial class MulticamSceneTile : ViewModelBase
             : "";
 
     internal MulticamSceneTile(SceneItemViewModel scene, StudioWorkspaceViewModel workspace,
-        IScenePreviewRuntime previewRuntime, int baseCanvasWidth, int baseCanvasHeight)
+        IScenePreviewRuntime previewRuntime, int baseCanvasWidth, int baseCanvasHeight,
+        Action<MulticamSceneTile>? selectionChanged = null)
     {
         Scene = scene;
         _workspace = workspace;
         PreviewRuntime = previewRuntime;
         BaseCanvasWidth = baseCanvasWidth;
         BaseCanvasHeight = baseCanvasHeight;
+        _selectionChanged = selectionChanged;
         Scene.PropertyChanged += OnScenePropertyChanged;
         Scene.Sources.CollectionChanged += OnSourcesChanged;
     }
@@ -82,6 +87,8 @@ public sealed partial class MulticamSceneTile : ViewModelBase
         OnPropertyChanged(nameof(IsAiSelected));
         OnPropertyChanged(nameof(IsAiConsidered));
     }
+
+    partial void OnIsSelectedChanged(bool value) => _selectionChanged?.Invoke(this);
 
     internal void ApplyBaseCanvas(int width, int height)
     {
@@ -163,8 +170,14 @@ public partial class MulticamViewModel : ViewModelBase
     [ObservableProperty] private string _aiStatusText = "IA désactivée";
     [ObservableProperty] private string _aiError = "";
     [ObservableProperty] private bool _isAiBusy;
+    [ObservableProperty] private MulticamAiSessionState _aiSessionState = MulticamAiSessionState.Off;
+    [ObservableProperty] private string _aiSuggestionName = "";
+    [ObservableProperty] private string _aiSuggestionConfidence = "";
+    private Guid? _aiSuggestionSceneId;
+    private bool _aiSelectionDirty;
 
     public bool IsAiEnabled => !IsAiOff;
+    public bool HasAiSuggestion => _aiSuggestionSceneId.HasValue && IsAiAgent;
 
     internal MulticamViewModel(
         IAiAnalysisClient aiAnalysisClient,
@@ -177,8 +190,11 @@ public partial class MulticamViewModel : ViewModelBase
         _previewRuntime = previewRuntime ?? new UnavailableScenePreviewRuntime();
         _settingsService = settingsService;
         (BaseCanvasWidth, BaseCanvasHeight) = CurrentBaseCanvas();
+        _aiAnalysisClient.SceneSwitchSuggested += OnSceneSwitchSuggested;
+        _aiAnalysisClient.SessionStatusChanged += OnSessionStatusChanged;
+        _aiAnalysisClient.ServerErrorReceived += OnServerErrorReceived;
         RefreshTiles();
-        Scenes.CollectionChanged += (_, _) => RefreshTiles();
+        Scenes.CollectionChanged += OnScenesChanged;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
         if (_settingsService != null)
             _settingsService.SettingsSaved += OnSettingsSaved;
@@ -209,7 +225,8 @@ public partial class MulticamViewModel : ViewModelBase
 
             if (existing == null)
             {
-                Tiles.Insert(index, new MulticamSceneTile(scene, _workspace, _previewRuntime, width, height));
+                Tiles.Insert(index, new MulticamSceneTile(scene, _workspace, _previewRuntime, width, height,
+                    OnTileSelectionChanged));
                 continue;
             }
 
@@ -239,6 +256,34 @@ public partial class MulticamViewModel : ViewModelBase
         foreach (var tile in Tiles) tile.NotifyOnAirChanged();
         OnPropertyChanged(nameof(SpotlightScene));
         OnPropertyChanged(nameof(SpotlightPlaceholderText));
+    }
+
+    private void OnScenesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RefreshTiles();
+        if (IsAiBusy)
+        {
+            _aiSelectionDirty = true;
+            return;
+        }
+        if (IsAiEnabled) _ = SynchronizeSelectedScenesAsync();
+    }
+
+    private void OnTileSelectionChanged(MulticamSceneTile tile)
+    {
+        if (IsAiBusy)
+        {
+            _aiSelectionDirty = true;
+            return;
+        }
+        if (IsAiEnabled) _ = SynchronizeSelectedScenesAsync();
+    }
+
+    partial void OnIsAiBusyChanged(bool value)
+    {
+        if (value || !_aiSelectionDirty || !IsAiEnabled) return;
+        _aiSelectionDirty = false;
+        _ = SynchronizeSelectedScenesAsync();
     }
 
     private void OnSettingsSaved(object? sender, EventArgs e)
@@ -316,29 +361,203 @@ public partial class MulticamViewModel : ViewModelBase
     private void SetColumns(int columns) => ColumnChoice = columns;
 
     [RelayCommand]
-    private void SetAiOff()
+    private async Task SetAiOff() => await StopAiAsync(false, "user_disabled");
+
+    private async Task StopAiAsync(bool force, string reason)
     {
-        IsAiOff = true;
-        IsAiAgent = false;
-        IsAiAuto = false;
+        if (IsAiBusy && !force) return;
+        IsAiBusy = true;
+        try { await _aiAnalysisClient.StopSessionAsync(reason, CancellationToken.None); }
+        catch (Exception exception) { AiError = exception.Message; }
+        finally
+        {
+            ClearAiSessionState();
+            IsAiBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SetAiAgent() => await StartAiAsync("agent");
+
+    [RelayCommand]
+    private async Task SetAiAuto() => await StartAiAsync("auto");
+
+    [RelayCommand]
+    private void ApplyAiSuggestion()
+    {
+        if (!IsAiAgent || _aiSuggestionSceneId is not { } sceneId) return;
+        var scene = Scenes.FirstOrDefault(candidate => candidate.Id == sceneId);
+        if (scene == null || !_aiAnalysisClient.ActiveSceneIds.Contains(sceneId)) return;
+
+        _workspace.SelectScene(scene);
+        AiStatusText = $"Scène appliquée : {scene.Name} ({AiSuggestionConfidence})";
+        ClearAiSuggestion();
+    }
+
+    private async Task StartAiAsync(string mode)
+    {
+        if (IsAiBusy) return;
+        var selectedScenes = SelectedAiScenes();
+        if (selectedScenes.Count == 0)
+        {
+            AiError = "Sélectionnez au moins une scène avec une source vidéo.";
+            AiStatusText = "IA désactivée";
+            return;
+        }
+
+        IsAiBusy = true;
         AiError = "";
-        AiStatusText = "IA désactivée";
-        OnPropertyChanged(nameof(IsAiEnabled));
+        AiSessionState = MulticamAiSessionState.Connecting;
+        AiStatusText = "Initialisation des flux IA...";
+        try
+        {
+            await _aiAnalysisClient.StopSessionAsync("mode_switch", CancellationToken.None);
+            await _aiAnalysisClient.StartSessionAsync(
+                GetSelectedModuleName(), mode,
+                selectedScenes.Select(scene => scene.ToDefinition()).ToList(),
+                CancellationToken.None);
+
+            IsAiOff = false;
+            IsAiAgent = mode == "agent";
+            IsAiAuto = mode == "auto";
+            AiSessionState = MulticamAiSessionState.Active;
+            OnPropertyChanged(nameof(IsAiEnabled));
+            OnPropertyChanged(nameof(HasAiSuggestion));
+            AiStatusText = $"IA active - {selectedScenes.Count} scène(s)";
+        }
+        catch (Exception exception)
+        {
+            try { await _aiAnalysisClient.StopSessionAsync("start_failed", CancellationToken.None); }
+            catch { }
+            ClearAiSessionState();
+            AiSessionState = MulticamAiSessionState.Error;
+            AiStatusText = "Erreur IA";
+            AiError = exception.Message;
+        }
+        finally { IsAiBusy = false; }
     }
 
-    [RelayCommand]
-    private void SetAiAgent() => ShowUnavailable();
-
-    [RelayCommand]
-    private void SetAiAuto() => ShowUnavailable();
-
-    private void ShowUnavailable()
+    private async Task SynchronizeSelectedScenesAsync()
     {
+        var selectedScenes = SelectedAiScenes();
+        if (selectedScenes.Count == 0)
+        {
+            await StopAiAsync(true, "no_sources");
+            return;
+        }
+
+        IsAiBusy = true;
+        AiError = "";
+        AiSessionState = MulticamAiSessionState.StartingStreams;
+        AiStatusText = "Synchronisation des flux IA...";
+        try
+        {
+            await _aiAnalysisClient.UpdateSourcesAsync(
+                selectedScenes.Select(scene => scene.ToDefinition()).ToList(), CancellationToken.None);
+            AiSessionState = MulticamAiSessionState.Active;
+            AiStatusText = $"IA active - {selectedScenes.Count} scène(s)";
+        }
+        catch (Exception exception)
+        {
+            AiError = exception.Message;
+            AiSessionState = MulticamAiSessionState.Error;
+            AiStatusText = "IA active - synchronisation en échec";
+        }
+        finally { IsAiBusy = false; }
+    }
+
+    private List<SceneItemViewModel> SelectedAiScenes() => Tiles
+        .Where(tile => tile.IsSelected && StudioWorkspaceViewModel.HasVideoSource(tile.Scene))
+        .Select(tile => tile.Scene)
+        .ToList();
+
+    private void ClearAiSessionState()
+    {
+        _aiSelectionDirty = false;
         IsAiOff = true;
         IsAiAgent = false;
         IsAiAuto = false;
-        AiStatusText = "IA indisponible";
-        AiError = _aiAnalysisClient.UnavailableMessage;
+        AiStatusText = "IA désactivée";
+        AiSessionState = MulticamAiSessionState.Off;
+        ClearAiSuggestion();
         OnPropertyChanged(nameof(IsAiEnabled));
+        OnPropertyChanged(nameof(HasAiSuggestion));
     }
+
+    private void ClearAiSuggestion()
+    {
+        _aiSuggestionSceneId = null;
+        AiSuggestionName = "";
+        AiSuggestionConfidence = "";
+        SetAiFocus(null);
+        OnPropertyChanged(nameof(HasAiSuggestion));
+    }
+
+    private void OnSceneSwitchSuggested(object? sender, AiSceneSwitchEvent aiEvent)
+    {
+        if (!Guid.TryParse(aiEvent.SceneId, out var sceneId) ||
+            !_aiAnalysisClient.ActiveSceneIds.Contains(sceneId)) return;
+
+        void Apply()
+        {
+            var scene = Scenes.FirstOrDefault(candidate => candidate.Id == sceneId);
+            if (scene == null) return;
+            _aiSuggestionSceneId = scene.Id;
+            AiSuggestionName = scene.Name;
+            AiSuggestionConfidence = $"{aiEvent.Confidence:P0}";
+            SetAiFocus(scene);
+            OnPropertyChanged(nameof(HasAiSuggestion));
+
+            if (IsAiAuto)
+            {
+                _workspace.SelectScene(scene);
+                AiStatusText = $"Scène IA : {scene.Name} ({AiSuggestionConfidence})";
+                ClearAiSuggestion();
+            }
+            else
+            {
+                AiStatusText = $"Suggestion IA : {scene.Name} ({AiSuggestionConfidence})";
+            }
+        }
+
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+    }
+
+    private void OnSessionStatusChanged(object? sender, AiSessionStatusEvent aiEvent)
+    {
+        void Apply() => AiStatusText = string.IsNullOrWhiteSpace(aiEvent.Message)
+            ? $"IA : {aiEvent.State}" : aiEvent.Message;
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+    }
+
+    private void OnServerErrorReceived(object? sender, AiServerErrorEvent aiEvent)
+    {
+        void Apply()
+        {
+            AiError = string.IsNullOrWhiteSpace(aiEvent.ErrorCode)
+                ? aiEvent.ErrorMessage : $"{aiEvent.ErrorCode}: {aiEvent.ErrorMessage}";
+            if (aiEvent.IsFatal)
+            {
+                AiStatusText = "Erreur IA fatale";
+                _ = StopAiAfterFatalAsync();
+            }
+        }
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+    }
+
+    private async Task StopAiAfterFatalAsync()
+    {
+        await StopAiAsync(true, "fatal_server_error");
+        AiSessionState = MulticamAiSessionState.Error;
+        AiStatusText = "Erreur IA fatale";
+    }
+
+    private string GetSelectedModuleName() => SelectedAiModelIndex switch
+    {
+        1 => "podcast",
+        _ => "football"
+    };
 }

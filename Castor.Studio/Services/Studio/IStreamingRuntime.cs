@@ -17,4 +17,9 @@ internal interface IStreamingRuntime
 
     Task<StudioRuntimeResult> StartStreamingAsync(StreamingRequest request, CancellationToken cancellationToken);
     Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken);
+
+    // Re-points the running output at another scene. StartStreamingAsync pins the OBS
+    // program channel to the scene that was active then, so a global scene switch has to
+    // update the running live output as well.
+    StudioRuntimeResult SwitchStreamingScene(Guid sceneId);
 }
