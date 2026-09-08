@@ -75,7 +75,7 @@ jobs:
           }
 
           & $iscc `
-            "--define=Version=$env:VERSION" `
+            "/DVersion=$env:VERSION" `
             "installer\Castor-Studio.iss"
 
       - name: Generate SHA-256 checksum
