@@ -47,6 +47,19 @@ public partial class StudioWorkspaceViewModel : ViewModelBase
         ActiveScene = scene;
     }
 
+    // Reordering belongs to the workspace rather than to whichever page asked for it,
+    // so the order holds everywhere the scenes are listed.
+    public void MoveScene(SceneItemViewModel moved, SceneItemViewModel target)
+    {
+        if (ReferenceEquals(moved, target)) return;
+
+        var from = Scenes.IndexOf(moved);
+        var to = Scenes.IndexOf(target);
+        if (from < 0 || to < 0) return;
+
+        Scenes.Move(from, to);
+    }
+
     public SourceItemViewModel AddSource(SceneItemViewModel scene, SourceDefinition definition)
     {
         var source = new SourceItemViewModel(definition);

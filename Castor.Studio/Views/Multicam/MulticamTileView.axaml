@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Multicam"
+             xmlns:controls="using:CastorApplication.Controls"
+             x:Class="CastorApplication.Views.Multicam.MulticamTileView"
+             xmlns:dockSettings="using:Dock.Settings"
+             x:DataType="vm:MulticamSceneTile">
+
+<Border Classes.onAir="{Binding IsOnAir}"
+        dockSettings:DockProperties.IsDragEnabled="False"
+        dockSettings:DockProperties.IsDropEnabled="False"
+        DoubleTapped="OnTileDoubleTapped"
+        DragDrop.AllowDrop="True"
+        DragDrop.DragOver="OnTileDragOver"
+        DragDrop.Drop="OnTileDrop"
+        ToolTip.Tip="Double-cliquer pour envoyer cette scène à l'antenne"
+        Background="{DynamicResource AppSurface}"
+        CornerRadius="10" Margin="0,0,10,10"
+        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
+        BoxShadow="0 2 10 0 #40000000">
+	<Border.Styles>
+		<Style Selector="Border.onAir">
+			<Setter Property="BorderBrush" Value="{StaticResource StatusErrorBrush}"/>
+			<Setter Property="BorderThickness" Value="2"/>
+		</Style>
+	</Border.Styles>
+
+	<Grid RowDefinitions="Auto, *, Auto">
+
+		<!-- Le titre tient dans un bandeau réservé, jamais en surimpression : la surface
+		     native est une fenêtre enfant Win32, Windows la compose au-dessus de tout ce
+		     qu'Avalonia peint. -->
+		<Border Grid.Row="0" Background="{DynamicResource AppSurface3}" Padding="12,8"
+                CornerRadius="9,9,0,0"
+                Cursor="SizeAll"
+                PointerPressed="OnTileBandPointerPressed"
+                ToolTip.Tip="Glisser pour réordonner les scènes">
+			<Grid ColumnDefinitions="Auto, *">
+				<Border Grid.Column="0" IsVisible="{Binding IsOnAir}"
+                        Background="{StaticResource StatusErrorBrush}"
+                        CornerRadius="3" Padding="6,2" Margin="0,0,8,0"
+                        VerticalAlignment="Center">
+					<TextBlock Text="LIVE" Foreground="White"
+                               FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
+				</Border>
+				<TextBlock Grid.Column="1" Text="{Binding Name}"
+                           TextTrimming="CharacterEllipsis"
+                           FontSize="13" FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource AppFg1}"/>
+			</Grid>
+		</Border>
+
+		<Panel Grid.Row="1" Background="#07070C" ClipToBounds="True">
+			<controls:StudioPreview Scene="{Binding Scene}"
+                                    IsVisible="{Binding HasVideo}"
+                                    ShowSceneName="False"
+                                    PreviewRuntime="{Binding PreviewRuntime}"
+                                    BaseCanvasWidth="{Binding BaseCanvasWidth}"
+                                    BaseCanvasHeight="{Binding BaseCanvasHeight}"
+                                    Message="{Binding PreviewPlaceholderText}"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch"/>
+
+			<!-- Une scène sans source ne lance pas d'aperçu du tout : plutôt qu'un
+			     rectangle noir, elle dit ce qui lui manque. Et c'est une surface native
+			     de moins à faire tourner. -->
+			<StackPanel IsVisible="{Binding !HasVideo}" Spacing="6"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+				<TextBlock Text="AUCUNE SOURCE" HorizontalAlignment="Center"
+                           FontSize="11" FontWeight="Bold" LetterSpacing="2"
+                           Foreground="{DynamicResource AppFg5}"/>
+				<TextBlock Text="Ajoutez-en une depuis l'onglet Scènes"
+                           HorizontalAlignment="Center" FontSize="11"
+                           Foreground="{DynamicResource AppFg4}"/>
+			</StackPanel>
+		</Panel>
+
+		<Border Grid.Row="2" Background="{DynamicResource AppSurface3}" Padding="12,7"
+                CornerRadius="0,0,9,9">
+			<Grid ColumnDefinitions="*, Auto">
+				<TextBlock Grid.Column="0"
+                           Text="{Binding SourceCount, StringFormat='{}{0} source(s)'}"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource AppFg4}" FontSize="11"/>
+
+				<!-- Une pastille plutôt qu'une case nue : rien ne disait à quoi elle sert. -->
+				<ToggleButton Grid.Column="1" IsChecked="{Binding IsSelected}"
+                              Classes="ai-pick" VerticalAlignment="Center"
+                              Content="IA"
+                              ToolTip.Tip="Inclure cette scène dans l'analyse IA"/>
+			</Grid>
+		</Border>
+	</Grid>
+</Border>
+
+</UserControl>

@@ -86,6 +86,30 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <!-- La sélection d'une scène pour l'IA, sur les tuiles du multicam. Une pastille plutôt
+         qu'une case à cocher : elle porte son propre libellé, donc on sait à quoi elle sert
+         sans la survoler, et elle se lit à la même distance que les autres pastilles. -->
+    <Style Selector="ToggleButton.ai-pick">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="9,3"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="ToggleButton.ai-pick:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppBadgeBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+    </Style>
+    <Style Selector="ToggleButton.ai-pick:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+
     <Style Selector="Button.nav">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
