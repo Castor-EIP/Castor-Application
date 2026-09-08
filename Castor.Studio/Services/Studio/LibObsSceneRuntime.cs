@@ -667,6 +667,30 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public StudioRuntimeResult SwitchStreamingScene(Guid sceneId)
+    {
+        lock (_gate)
+        {
+            if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            if (_streamingOutput == null) return StudioRuntimeResult.Success();
+            if (_streamingSceneId == sceneId) return StudioRuntimeResult.Success();
+            if (!_scenes.TryGetValue(sceneId, out var scene))
+                return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                using (var sceneSource = scene.Source)
+                    Obs.SetOutputSource(0, sceneSource);
+                _streamingSceneId = sceneId;
+                return StudioRuntimeResult.Success();
+            }
+            catch (Exception exception)
+            {
+                return StudioRuntimeResult.Failure($"Changement de scène du live impossible : {exception.Message}");
+            }
+        }
+    }
+
     public async Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken)
     {
         Task<ObsOutputStateChangedEventArgs> stoppedTask;

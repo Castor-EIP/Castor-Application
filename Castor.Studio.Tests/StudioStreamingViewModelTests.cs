@@ -124,6 +124,48 @@ public sealed class StudioStreamingViewModelTests
     }
 
     [Fact]
+    public void Switching_scene_while_streaming_re_points_the_output()
+    {
+        var fixture = CreateFixture(ConnectedProvider());
+        try
+        {
+            var second = fixture.Workspace.CreateScene("Autre scène");
+            fixture.Workspace.AddSource(second, new SourceDefinition { Name = "Webcam", Kind = SourceKind.Video });
+            fixture.Workspace.SetStreamingState(true);
+
+            fixture.Workspace.SelectScene(second);
+
+            Assert.Equal([second.Id], fixture.StreamingRuntime.SwitchedScenes);
+            Assert.Equal("", fixture.ViewModel.StreamError);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public void Refused_streaming_scene_switch_surfaces_the_native_message()
+    {
+        var fixture = CreateFixture(ConnectedProvider());
+        try
+        {
+            var second = fixture.Workspace.CreateScene("Autre scène");
+            fixture.Workspace.AddSource(second, new SourceDefinition { Name = "Webcam", Kind = SourceKind.Video });
+            fixture.Workspace.SetStreamingState(true);
+            fixture.StreamingRuntime.SwitchResult = StudioRuntimeResult.Failure("scène refusée");
+
+            fixture.Workspace.SelectScene(second);
+
+            Assert.Equal("scène refusée", fixture.ViewModel.StreamError);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Unexpected_native_stop_updates_the_ui_and_reports_the_error()
     {
         var fixture = CreateFixture(ConnectedProvider());
@@ -244,6 +286,8 @@ public sealed class StudioStreamingViewModelTests
         public StreamingRequest? Request { get; private set; }
         public StudioRuntimeResult StartResult { get; set; } = StudioRuntimeResult.Success();
         public StudioRuntimeResult StopResult { get; set; } = StudioRuntimeResult.Success();
+        public List<Guid> SwitchedScenes { get; } = [];
+        public StudioRuntimeResult SwitchResult { get; set; } = StudioRuntimeResult.Success();
         public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged;
 
         public Task<StudioRuntimeResult> StartStreamingAsync(
@@ -256,6 +300,12 @@ public sealed class StudioStreamingViewModelTests
 
         public Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken) =>
             Task.FromResult(StopResult);
+
+        public StudioRuntimeResult SwitchStreamingScene(Guid sceneId)
+        {
+            SwitchedScenes.Add(sceneId);
+            return SwitchResult;
+        }
 
         public void RaiseState(bool isStreaming, string message = "") =>
             StreamingStateChanged?.Invoke(this, new StreamingStateChangedEventArgs(isStreaming, message));

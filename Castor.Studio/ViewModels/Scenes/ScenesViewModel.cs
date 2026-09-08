@@ -113,14 +113,14 @@ public partial class ScenesViewModel : ViewModelBase
         BaseCanvasHeight = baseResolution.Height;
     }
 
-    // Picks a scene to view and edit here. This is deliberately local to the Scenes page:
-    // it must never move ActiveScene, the scene the Studio page's own selector and
-    // recording/streaming read - browsing scenes to adjust one must not touch whatever is
-    // currently on air. Going live with a different scene stays the Studio page's job.
+    // The workspace owns the global scene selection. Keep this page's selection projection
+    // synchronized with it so Studio, Scenes, recording, and streaming all use one scene.
     [RelayCommand]
     private void SelectScene(SceneItemViewModel scene)
     {
-        SelectedScene = scene;
+        if (!Scenes.Contains(scene)) return;
+        _workspace.SelectScene(scene);
+        SelectedScene = _workspace.ActiveScene;
     }
 
     [RelayCommand]
@@ -137,10 +137,9 @@ public partial class ScenesViewModel : ViewModelBase
         }
 
         definition.Name = result.EffectiveName;
-        // AddScene makes it ActiveScene on its own when it is the very first scene; beyond
-        // that, only SelectScene decides what goes on air, and creating one is not that.
+        // Select the new scene globally so both pages and any running output stay in sync.
         var scene = _workspace.AddScene(definition);
-        SelectedScene = scene;
+        SelectScene(scene);
         NewSceneName = "";
         SceneIoStatus = "";
     }

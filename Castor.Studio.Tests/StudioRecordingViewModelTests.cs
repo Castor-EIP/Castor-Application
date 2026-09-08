@@ -317,6 +317,9 @@ public sealed class StudioRecordingViewModelTests
             CancellationToken cancellationToken) => Task.FromResult(StudioRuntimeResult.Success());
         public Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
+
+        public StudioRuntimeResult SwitchStreamingScene(Guid sceneId) =>
+            StudioRuntimeResult.Success();
     }
 
     private sealed class FakeProviderStore : IProviderStore

@@ -306,8 +306,8 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     // A scene switch has to reach the running output, not just the preview: the recorded
-    // file renders whatever sits in the OBS program channel. Idle is left alone - starting
-    // a recording points the channel at the active scene anyway.
+    // file and live stream render whatever sits in the OBS program channel. Idle is left
+    // alone - starting an output points the channel at the active scene anyway.
     private void ApplyActiveSceneToRecording()
     {
         if (!_workspace.IsRecording) return;
@@ -319,6 +319,17 @@ public partial class StudioViewModel : ViewModelBase
         if (!result.IsSuccess) RecordError = result.Message;
     }
 
+    private void ApplyActiveSceneToStreaming()
+    {
+        if (!_workspace.IsStreaming) return;
+
+        var scene = ActiveScene;
+        if (scene == null) return;
+
+        var result = _streamingRuntime.SwitchStreamingScene(scene.Id);
+        if (!result.IsSuccess) StreamError = result.Message;
+    }
+
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(StudioWorkspaceViewModel.ActiveScene))
@@ -326,6 +337,7 @@ public partial class StudioViewModel : ViewModelBase
             OnPropertyChanged(nameof(ActiveScene));
             NotifyPreviewChanged();
             ApplyActiveSceneToRecording();
+            ApplyActiveSceneToStreaming();
         }
         else if (e.PropertyName is nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))
         {
