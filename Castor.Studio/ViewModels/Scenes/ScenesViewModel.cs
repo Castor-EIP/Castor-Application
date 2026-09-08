@@ -104,7 +104,7 @@ public partial class ScenesViewModel : ViewModelBase
             newValue.IsSelected = true;
             // Afficher une scène, c'est relire son empilement dans le moteur : l'ordre survit
             // ainsi à un rechargement sans qu'on l'ait mémorisé de notre côté.
-            SyncSourceOrder(newValue);
+            SourceOperationStatus = SyncSourceOrder(newValue);
         }
 
         OnPropertyChanged(nameof(PreviewPlaceholderText));
@@ -399,8 +399,7 @@ public partial class ScenesViewModel : ViewModelBase
         }
 
         scene.Sources.Remove(source);
-        SyncSourceOrder(scene);
-        SourceOperationStatus = "";
+        SourceOperationStatus = SyncSourceOrder(scene);
     }
 
     // ── Empilement des sources (z-order) ─────────────────────────────────────
@@ -461,11 +460,16 @@ public partial class ScenesViewModel : ViewModelBase
         var result = _sourceRuntime.MoveSource(scene.Id, source.Id, layerIndex);
         // Réussite ou refus, on se recale sur le moteur : un refus doit remettre la liste
         // telle qu'elle est réellement rendue, pas telle qu'on l'espérait.
-        SyncSourceOrder(scene);
-        SourceOperationStatus = result.IsSuccess ? "" : result.Message;
+        var syncFailure = SyncSourceOrder(scene);
+        SourceOperationStatus = result.IsSuccess ? syncFailure : result.Message;
     }
 
-    private void SyncSourceOrder(SceneItemViewModel scene)
+    /// <summary>
+    /// Réaligne la liste affichée sur l'ordre que le moteur détient, et rend son message
+    /// d'échec s'il n'a pas pu le donner — sans quoi un déplacement accepté par le moteur
+    /// mais illisible ensuite laisserait la liste figée sans rien signaler.
+    /// </summary>
+    private string SyncSourceOrder(SceneItemViewModel scene)
     {
         var order = _sourceRuntime.GetSourceOrder(scene.Id);
         if (order.IsSuccess)
@@ -484,6 +488,10 @@ public partial class ScenesViewModel : ViewModelBase
         // Les extrémités de la pile bougent avec l'ordre, les boutons doivent suivre.
         RaiseSourceCommand.NotifyCanExecuteChanged();
         LowerSourceCommand.NotifyCanExecuteChanged();
+
+        // Un moteur globalement indisponible est déjà annoncé par l'aperçu ; seul un refus
+        // propre à cette scène mérite d'être écrit sous la liste.
+        return order.Status == StudioRuntimeStatus.Failure ? order.Message : "";
     }
 
     private static int IndexOfSource(SceneItemViewModel scene, Guid sourceId)
@@ -576,8 +584,7 @@ public partial class ScenesViewModel : ViewModelBase
         _workspace.AddSource(scene, definition);
         // Le moteur empile la nouvelle source au premier plan : on relit plutôt que de
         // supposer où elle a atterri.
-        SyncSourceOrder(scene);
-        SourceOperationStatus = "";
+        SourceOperationStatus = SyncSourceOrder(scene);
     }
 
     private static List<SourceDefinition> NormalizeImportedSources(

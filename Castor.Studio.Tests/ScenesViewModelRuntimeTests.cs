@@ -350,6 +350,26 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Empty(sourceRuntime.RequestedLayerIndexes);
     }
 
+    [Fact]
+    public async Task An_order_the_engine_cannot_give_back_is_reported_rather_than_swallowed()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        var before = Names(scene);
+        sourceRuntime.OrderIsUnreadable = true;
+
+        // Le moteur accepte le déplacement mais ne sait plus rendre l'ordre : la liste reste
+        // en arrière, ce qui doit se voir plutôt que passer pour un geste sans effet.
+        viewModel.LowerSourceCommand.Execute(scene.Sources[0]);
+
+        Assert.Equal(before, Names(scene));
+        Assert.Equal("ordre illisible", viewModel.SourceOperationStatus);
+    }
+
     private static async Task AddVideoSourcesAsync(ScenesViewModel viewModel, params string[] labels)
     {
         foreach (var label in labels)
