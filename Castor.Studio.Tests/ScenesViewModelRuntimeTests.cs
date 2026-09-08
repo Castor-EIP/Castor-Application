@@ -70,6 +70,8 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Same(second, viewModel.SelectedScene);
         Assert.False(onAir.IsSelected);
         Assert.True(second.IsSelected);
+        Assert.True(onAir.IsActive);
+        Assert.False(second.IsActive);
         Assert.Same(onAir, workspace.ActiveScene);
 
         // Browsing back to it - e.g. to adjust it mid-recording - must not touch ActiveScene
@@ -79,6 +81,8 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Same(onAir, viewModel.SelectedScene);
         Assert.True(onAir.IsSelected);
         Assert.False(second.IsSelected);
+        Assert.True(onAir.IsActive);
+        Assert.False(second.IsActive);
         Assert.Same(onAir, workspace.ActiveScene);
     }
 
@@ -145,6 +149,8 @@ public sealed class ScenesViewModelRuntimeTests
         // Creating_or_selecting_a_scene_does_not_disturb_what_is_on_air.
         Assert.False(first.IsSelected);
         Assert.True(second.IsSelected);
+        Assert.True(first.IsActive);
+        Assert.False(second.IsActive);
 
         runtime.Remove = _ => SceneRuntimeResult.Failure("suppression refusée");
         viewModel.DeleteSceneCommand.Execute(second);

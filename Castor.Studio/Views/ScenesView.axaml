@@ -283,43 +283,26 @@
 									<Button Grid.Column="2" Classes="scene-btn" Classes.selected="{Binding IsSelected}"
                                             Command="{Binding #ScenesRoot.DataContext.SelectSceneCommand}"
                                             CommandParameter="{Binding}">
-										<Panel>
-											<!-- Active scene display -->
-											<Border IsVisible="{Binding IsActive}"
-                                                    Background="{DynamicResource AppAccentBg2}"
-                                                    BorderBrush="#5b8def"
-                                                    BorderThickness="3,0,0,0">
-												<Grid ColumnDefinitions="*, Auto" Margin="14,10,10,10">
-													<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-														<Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center"/>
-														<TextBlock Text="▶" Foreground="#5b8def" FontSize="10"
-                                                                   VerticalAlignment="Center"/>
-														<TextBlock Text="{Binding Name}" Foreground="{DynamicResource AppFg1}"
-                                                                   FontSize="13" FontWeight="SemiBold"
-                                                                   VerticalAlignment="Center"/>
-													</StackPanel>
-													<Border Grid.Column="1"
-                                                            IsVisible="{Binding IsLive}"
-                                                            Background="#5b8def" CornerRadius="3" Padding="6,2">
-														<TextBlock Text="EN DIRECT" Foreground="#eaeaf0"
-                                                                   FontSize="9" FontWeight="Bold"/>
-													</Border>
-												</Grid>
-											</Border>
-
-											<!-- Inactive scene display -->
-											<Border IsVisible="{Binding !IsActive}"
-                                                    Padding="14,10">
-												<StackPanel Orientation="Horizontal" Spacing="8">
-													<Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center"/>
-													<TextBlock Text="▶" IsVisible="{Binding IsSelected}"
+										<Grid ColumnDefinitions="*, Auto" Margin="14,10,10,10">
+											<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+												<Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center"/>
+												<TextBlock Text="▶" IsVisible="{Binding IsSelected}"
                                                                Foreground="{DynamicResource AppAccentFg}" FontSize="10"
                                                                VerticalAlignment="Center"/>
-													<TextBlock Text="{Binding Name}"
-                                                               Foreground="{DynamicResource AppFg3}" FontSize="13"/>
-												</StackPanel>
+												<TextBlock Text="{Binding Name}" IsVisible="{Binding IsSelected}"
+                                                               Foreground="{DynamicResource AppFg1}" FontSize="13"
+                                                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+												<TextBlock Text="{Binding Name}" IsVisible="{Binding !IsSelected}"
+                                                               Foreground="{DynamicResource AppFg3}" FontSize="13"
+                                                               VerticalAlignment="Center"/>
+											</StackPanel>
+											<Border Grid.Column="1"
+                                                            IsVisible="{Binding IsLive}"
+                                                            Background="#5b8def" CornerRadius="3" Padding="6,2">
+												<TextBlock Text="EN DIRECT" Foreground="#eaeaf0"
+                                                               FontSize="9" FontWeight="Bold"/>
 											</Border>
-										</Panel>
+										</Grid>
 									</Button>
 
 									<!-- Actions -->
