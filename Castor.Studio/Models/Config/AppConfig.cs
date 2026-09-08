@@ -15,5 +15,6 @@ namespace CastorApplication.Models.Config
     public class AiServerConfig
     {
         public string Endpoint { get; set; } = "http://127.0.0.1:50051";
+        public string MediaMtxRtmpBaseUrl { get; set; } = "rtmp://127.0.0.1:1935/live/";
     }
 }

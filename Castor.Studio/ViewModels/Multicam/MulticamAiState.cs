@@ -15,3 +15,12 @@ public enum MulticamAiState
     /// <summary>The scene the AI would switch to.</summary>
     Selected,
 }
+
+public enum MulticamAiSessionState
+{
+    Off,
+    Connecting,
+    StartingStreams,
+    Active,
+    Error,
+}

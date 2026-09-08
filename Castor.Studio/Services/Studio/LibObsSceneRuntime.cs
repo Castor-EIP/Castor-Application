@@ -5,7 +5,7 @@ using LibObs;
 
 namespace CastorApplication.Services.Studio;
 
-internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecordingRuntime, IStreamingRuntime, IScenePreviewRuntime, IDisposable
+internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecordingRuntime, IStreamingRuntime, IScenePreviewRuntime, IAiSceneSourceProvider, IDisposable
 {
     private const string FfmpegOutputId = "ffmpeg_output";
     private const string LibVpxVp9EncoderName = "libvpx-vp9";
@@ -58,6 +58,15 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
     public bool IsAvailable => _initialized && !_disposed;
     public string UnavailableMessage => _unavailableMessage;
+
+    public ObsSource? AcquireSceneSource(Guid sceneId)
+    {
+        lock (_gate)
+        {
+            if (!IsAvailable || !_scenes.TryGetValue(sceneId, out var scene)) return null;
+            return scene.Source;
+        }
+    }
 
     public event EventHandler<RecordingStateChangedEventArgs>? StateChanged;
     public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged;
