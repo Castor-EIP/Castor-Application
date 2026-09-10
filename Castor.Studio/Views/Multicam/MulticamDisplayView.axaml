@@ -58,6 +58,7 @@
 			</Grid>
 		</Border>
 
+		<Panel Grid.Row="1">
 			<!-- Empty State Multicam quand aucune scène n'est créée -->
 			<Border IsVisible="{Binding !HasScenes}" Classes="empty-state-box"
 			        HorizontalAlignment="Center" VerticalAlignment="Center"
