@@ -77,10 +77,9 @@
                                FontSize="11" VerticalAlignment="Center"/>
 		<ComboBox MinWidth="180"
                               SelectedIndex="{Binding SelectedAiModelIndex}"
-                              IsEnabled="{Binding !IsAiEnabled}"
-                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="12">
-			<ComboBoxItem Content="Football"/>
+                              IsEnabled="{Binding !IsAiEnabled}">
 			<ComboBoxItem Content="Podcast"/>
+			<ComboBoxItem Content="Football"/>
 		</ComboBox>
 	</StackPanel>
 

@@ -598,7 +598,7 @@ public partial class MulticamViewModel : ViewModelBase
 
     private string GetSelectedModuleName() => SelectedAiModelIndex switch
     {
-        1 => "podcast",
-        _ => "football"
+        1 => "football",
+        _ => "podcast"
     };
 }

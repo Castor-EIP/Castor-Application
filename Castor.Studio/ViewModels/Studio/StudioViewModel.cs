@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Media;
@@ -26,22 +27,13 @@ public partial class StudioViewModel : ViewModelBase
     private readonly SettingsService _settingsService;
     private readonly DispatcherTimer _sessionTimer;
     private DateTime? _sessionStartUtc;
+    private SceneItemViewModel? _observedActiveScene;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
     public bool IsStreaming => _workspace.IsStreaming;
     public bool IsRecording => _workspace.IsRecording;
 
-    public SceneItemViewModel? ActiveScene
-    {
-        get => _workspace.ActiveScene;
-        set
-        {
-            if (value == null) return;
-            _workspace.SelectScene(value);
-            OnPropertyChanged();
-            NotifyPreviewChanged();
-        }
-    }
+    public SceneItemViewModel? ActiveScene => _workspace.ActiveScene;
 
     // Backs the native preview host in PreviewPaneView.axaml - same engine and same base
     // resolution tracking as ScenesViewModel. Each page gets its own native display, so
@@ -91,6 +83,7 @@ public partial class StudioViewModel : ViewModelBase
         _streamingRuntime = streamingRuntime;
         _providerStore = providerStore;
         _settingsService = settingsService;
+        UpdateObservedActiveScene(_workspace.ActiveScene);
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
         _recordingRuntime.StateChanged += OnRecordingRuntimeStateChanged;
         _streamingRuntime.StreamingStateChanged += OnStreamingRuntimeStateChanged;
@@ -334,6 +327,7 @@ public partial class StudioViewModel : ViewModelBase
     {
         if (e.PropertyName == nameof(StudioWorkspaceViewModel.ActiveScene))
         {
+            UpdateObservedActiveScene(_workspace.ActiveScene);
             OnPropertyChanged(nameof(ActiveScene));
             NotifyPreviewChanged();
             ApplyActiveSceneToRecording();
@@ -345,6 +339,20 @@ public partial class StudioViewModel : ViewModelBase
             if (IsRecording || IsStreaming) StartSessionTimerIfNeeded();
             else ResetSessionTimer();
         }
+    }
+
+    private void UpdateObservedActiveScene(SceneItemViewModel? newScene)
+    {
+        if (_observedActiveScene != null)
+            _observedActiveScene.Sources.CollectionChanged -= OnActiveSceneSourcesChanged;
+        _observedActiveScene = newScene;
+        if (_observedActiveScene != null)
+            _observedActiveScene.Sources.CollectionChanged += OnActiveSceneSourcesChanged;
+    }
+
+    private void OnActiveSceneSourcesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        NotifyPreviewChanged();
     }
 
     private void NotifyPreviewChanged()

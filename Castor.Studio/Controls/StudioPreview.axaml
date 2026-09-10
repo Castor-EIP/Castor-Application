@@ -12,24 +12,25 @@
                                  HorizontalAlignment="Center"
                                  VerticalAlignment="Center" />
 
-        <StackPanel IsVisible="{Binding #NativePreview.ShowPlaceholder}"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-            <TextBlock Text="APERÇU"
-                       HorizontalAlignment="Center"
-                       Foreground="{DynamicResource AppFg5}"
-                       FontSize="13" FontWeight="Bold" LetterSpacing="2"/>
-            <TextBlock Text="{Binding #PreviewRoot.Message}"
-                       HorizontalAlignment="Center"
-                       Foreground="{DynamicResource AppFg4}"
-                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                       MaxWidth="380" />
-            <TextBlock Text="{Binding #NativePreview.ErrorMessage}"
-                       IsVisible="{Binding #NativePreview.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                       HorizontalAlignment="Center"
-                       Foreground="{StaticResource StatusErrorBrush}"
-                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                       MaxWidth="380" />
-        </StackPanel>
+        <Border IsVisible="{Binding #NativePreview.ShowPlaceholder}"
+                Classes="empty-state-box"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                MaxWidth="420">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                <TextBlock Text="APERÇU"
+                           Classes="empty-state-title"
+                           LetterSpacing="2"/>
+                <TextBlock Text="{Binding #PreviewRoot.Message}"
+                           Classes="empty-state-desc"
+                           MaxWidth="360" />
+                <TextBlock Text="{Binding #NativePreview.ErrorMessage}"
+                           IsVisible="{Binding #NativePreview.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           HorizontalAlignment="Center"
+                           Foreground="{StaticResource StatusErrorBrush}"
+                           FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                           MaxWidth="360" />
+            </StackPanel>
+        </Border>
         <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
                 Margin="12" Padding="10,6" CornerRadius="5"
                 IsVisible="{Binding #PreviewRoot.ShowSceneName}"

@@ -127,7 +127,7 @@ public sealed class MulticamAiSessionTests
         await viewModel.SetAiAgentCommand.ExecuteAsync(null);
 
         Assert.Equal("agent", Assert.Single(client.StartedModes));
-        Assert.Equal("football", client.ModuleName);
+        Assert.Equal("podcast", client.ModuleName);
     }
 
     private sealed class FakeAiClient : IAiAnalysisClient

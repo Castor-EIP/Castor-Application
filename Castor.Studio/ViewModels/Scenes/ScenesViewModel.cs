@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
@@ -49,11 +50,17 @@ public partial class ScenesViewModel : ViewModelBase
     public bool HasSources => SelectedScene != null && SelectedScene.Sources.Count > 0;
     public bool HasNoSources => SelectedScene == null || SelectedScene.Sources.Count == 0;
 
+    public bool ShowPreviewPlaceholder => !_previewRuntime.IsAvailable
+        || SelectedScene == null
+        || SelectedScene.Sources.Count == 0;
+
     public string PreviewPlaceholderText => !_previewRuntime.IsAvailable
         ? _previewRuntime.UnavailableMessage
         : SelectedScene == null
-            ? "Aucune scène sélectionnée."
-            : "";
+            ? "Aucune scène sélectionnée — sélectionnez ou créez une scène."
+            : SelectedScene.Sources.Count == 0
+                ? "Cette scène n'a pas de source — ajoutez une caméra, un écran ou un fichier ci-dessous."
+                : "";
 
     public static IReadOnlyList<string> SceneColorPalette { get; } =
     [
@@ -86,6 +93,10 @@ public partial class ScenesViewModel : ViewModelBase
         BaseCanvasWidth = baseResolution.Width;
         BaseCanvasHeight = baseResolution.Height;
         SelectedScene = workspace.ActiveScene;
+        if (SelectedScene != null)
+        {
+            SelectedScene.Sources.CollectionChanged += OnSourcesCollectionChanged;
+        }
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
         Scenes.CollectionChanged += (_, _) =>
         {
@@ -110,9 +121,28 @@ public partial class ScenesViewModel : ViewModelBase
 
     partial void OnSelectedSceneChanged(SceneItemViewModel? oldValue, SceneItemViewModel? newValue)
     {
-        if (oldValue != null) oldValue.IsSelected = false;
-        if (newValue != null) newValue.IsSelected = true;
+        if (oldValue != null)
+        {
+            oldValue.IsSelected = false;
+            oldValue.Sources.CollectionChanged -= OnSourcesCollectionChanged;
+        }
+        if (newValue != null)
+        {
+            newValue.IsSelected = true;
+            newValue.Sources.CollectionChanged += OnSourcesCollectionChanged;
+        }
+        NotifySourceStateChanged();
+    }
+
+    private void OnSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        NotifySourceStateChanged();
+    }
+
+    private void NotifySourceStateChanged()
+    {
         OnPropertyChanged(nameof(PreviewPlaceholderText));
+        OnPropertyChanged(nameof(ShowPreviewPlaceholder));
         OnPropertyChanged(nameof(HasSelectedScene));
         OnPropertyChanged(nameof(HasNoSelectedScene));
         OnPropertyChanged(nameof(HasSources));

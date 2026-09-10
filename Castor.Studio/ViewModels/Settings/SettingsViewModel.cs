@@ -101,14 +101,22 @@ public partial class SettingsViewModel : ViewModelBase
             };
         }
 
-        CurrentSection = Sections.FirstOrDefault()?.ViewModel;
+        var firstSection = Sections.FirstOrDefault();
+        if (firstSection != null)
+        {
+            firstSection.IsSelected = true;
+            CurrentSection = firstSection.ViewModel;
+        }
         Load();
     }
 
     [RelayCommand]
-    public async Task SelectSectionAsync(SettingsSectionItem item)
+    public void SelectSection(SettingsSectionItem item)
     {
-        await Task.CompletedTask;
+        foreach (var section in Sections)
+        {
+            section.IsSelected = (section == item);
+        }
         CurrentSection = item.ViewModel;
     }
 

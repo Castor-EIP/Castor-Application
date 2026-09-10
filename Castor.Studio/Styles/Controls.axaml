@@ -207,6 +207,74 @@
         <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
     </Style>
+
+    <Style Selector="Button.settings-nav-btn">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="4,10,14,10"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Margin" Value="6,2"/>
+    </Style>
+    <Style Selector="Button.settings-nav-btn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+    </Style>
+    <Style Selector="Button.settings-nav-btn:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+    <Style Selector="Button.settings-nav-btn.selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.settings-nav-btn.selected:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <!-- ═══ COMBOBOX & DROPDOWNS ═══ -->
+    <Style Selector="ComboBox">
+        <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="ComboBox:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderFocus}"/>
+    </Style>
+    <Style Selector="ComboBox:focus">
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+    <Style Selector="ComboBoxItem">
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Margin" Value="2,1"/>
+    </Style>
+    <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+    </Style>
+    <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
     <Style Selector="TextBlock.setting-label">
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
         <Setter Property="FontSize" Value="13"/>

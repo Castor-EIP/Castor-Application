@@ -260,7 +260,9 @@
 				<Rectangle Grid.Row="4" Fill="{DynamicResource AppBorder}"/>
 
 				<!-- Dynamic scene list -->
-				<ScrollViewer Grid.Row="5">
+				<ScrollViewer Grid.Row="5"
+				              VerticalScrollBarVisibility="Auto"
+				              HorizontalScrollBarVisibility="Disabled">
 					<Panel>
 						<Border IsVisible="{Binding HasNoScenes}" Margin="12,24" Classes="empty-state-box">
 							<StackPanel Spacing="10" HorizontalAlignment="Center">
@@ -268,7 +270,8 @@
 								<TextBlock Text="Cliquez sur + en haut pour créer votre première scène." Classes="empty-state-desc"/>
 							</StackPanel>
 						</Border>
-						<ItemsControl ItemsSource="{Binding Scenes}">
+						<ItemsControl ItemsSource="{Binding Scenes}"
+						              IsVisible="{Binding HasScenes}">
 						<ItemsControl.ItemTemplate>
 							<DataTemplate x:DataType="m:SceneItemViewModel">
 								<Grid ColumnDefinitions="Auto, Auto, *, Auto"
@@ -435,13 +438,32 @@
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
                     ClipToBounds="True">
 				<Panel>
-				<controls:StudioPreview Scene="{Binding SelectedScene}"
+					<controls:StudioPreview Scene="{Binding SelectedScene}"
                                             PreviewRuntime="{Binding PreviewRuntime}"
                                             BaseCanvasWidth="{Binding BaseCanvasWidth}"
                                             BaseCanvasHeight="{Binding BaseCanvasHeight}"
                                             Message="{Binding PreviewPlaceholderText}"
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"/>
+
+					<!-- Recouvre StudioPreview quand aucune source n'est disponible -->
+					<Border IsVisible="{Binding ShowPreviewPlaceholder}"
+					        Classes="empty-state-box"
+					        HorizontalAlignment="Center" VerticalAlignment="Center"
+					        MaxWidth="440">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+							<TextBlock Text="APERÇU DE LA SCÈNE"
+							           Classes="empty-state-title"
+							           LetterSpacing="1"/>
+							<TextBlock Text="{Binding PreviewPlaceholderText}"
+							           Classes="empty-state-desc"
+							           MaxWidth="380"/>
+							<Button Content="AJOUTER UNE SOURCE"
+							        Classes="empty-state-action"
+							        Command="{Binding OpenAddSourceCommand}"
+							        IsVisible="{Binding HasNoSources}"/>
+						</StackPanel>
+					</Border>
 				</Panel>
 			</Border>
 
@@ -468,7 +490,9 @@
 					<Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>
 
 					<!-- Dynamic source list -->
-					<ScrollViewer Grid.Row="2">
+					<ScrollViewer Grid.Row="2"
+					              VerticalScrollBarVisibility="Auto"
+					              HorizontalScrollBarVisibility="Disabled">
 						<Panel>
 							<!-- Cas 1 : Aucune scène sélectionnée -->
 							<Border IsVisible="{Binding HasNoSelectedScene}" Classes="empty-state-box"
@@ -490,7 +514,8 @@
 								</StackPanel>
 							</Border>
 
-							<ItemsControl ItemsSource="{Binding SelectedScene.Sources}">
+							<ItemsControl ItemsSource="{Binding SelectedScene.Sources}"
+							              IsVisible="{Binding HasSources}">
 							<ItemsControl.ItemTemplate>
 								<DataTemplate x:DataType="m:SourceItemViewModel">
 									<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2">
