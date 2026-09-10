@@ -36,7 +36,7 @@ public partial class MainViewModel : ViewModelBase
     public IReadOnlyList<StudioPanelEntry> PanelMenu { get; }
 
     public string GlobalStatusText => _workspace.IsStreaming ? "EN DIRECT" : _workspace.IsRecording ? "REC" : "OFFLINE";
-    public IBrush GlobalStatusBrush => SolidColorBrush.Parse(_workspace.IsStreaming || _workspace.IsRecording ? "#f87171" : "#3c3c4e");
+    public IBrush GlobalStatusBrush => SolidColorBrush.Parse(_workspace.IsStreaming || _workspace.IsRecording ? "#f87171" : "#8888a2");
 
     [ObservableProperty] private ViewModelBase? _currentPage;
     [ObservableProperty] private MainPageKind _currentPageKind;

@@ -349,6 +349,40 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Single(sourceRuntime.AddedRequests);
     }
 
+    [Fact]
+    public async Task OpenAddSource_when_no_scenes_exist_automatically_creates_default_scene()
+    {
+        var runtime = new FakeSceneRuntime();
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(runtime, workspace);
+
+        Assert.Empty(viewModel.Scenes);
+        Assert.Null(viewModel.SelectedScene);
+
+        await viewModel.OpenAddSourceCommand.ExecuteAsync(null);
+
+        var scene = Assert.Single(viewModel.Scenes);
+        Assert.Equal("Scène 1", scene.Name);
+        Assert.Same(scene, viewModel.SelectedScene);
+        Assert.Contains("Scène 1", viewModel.SourceOperationStatus);
+    }
+
+    [Fact]
+    public async Task OpenAddSource_when_scenes_exist_but_none_selected_selects_first_scene()
+    {
+        var runtime = new FakeSceneRuntime();
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(runtime, workspace);
+        CreateScene(viewModel, "Existing");
+        viewModel.SelectedScene = null;
+
+        await viewModel.OpenAddSourceCommand.ExecuteAsync(null);
+
+        Assert.Single(viewModel.Scenes);
+        Assert.NotNull(viewModel.SelectedScene);
+        Assert.Equal("Existing", viewModel.SelectedScene.Name);
+    }
+
     private static SceneItemViewModel CreateScene(ScenesViewModel viewModel, string name)
     {
         viewModel.NewSceneName = name;

@@ -70,8 +70,8 @@ public partial class StudioViewModel : ViewModelBase
     [ObservableProperty] private string _recordingOutputDirectory = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
-    public IBrush StreamStatusBrush => SolidColorBrush.Parse(IsStreaming ? "#f87171" : "#3c3c4e");
-    public IBrush StreamTimerBrush => SolidColorBrush.Parse(IsStreaming || IsRecording ? "#f87171" : "#3c3c4e");
+    public IBrush StreamStatusBrush => SolidColorBrush.Parse(IsStreaming ? "#f87171" : "#8888a2");
+    public IBrush StreamTimerBrush => SolidColorBrush.Parse(IsStreaming || IsRecording ? "#f87171" : "#8888a2");
     public string SceneBarStatusText => IsStreaming ? "EN DIRECT" : IsRecording ? "REC" : "Prêt";
     public IBrush SceneBarStatusBrush => SolidColorBrush.Parse(IsStreaming || IsRecording ? "#f87171" : "#34d399");
 

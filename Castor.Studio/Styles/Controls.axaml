@@ -86,28 +86,83 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <!-- La sélection d'une scène pour l'IA, sur les tuiles du multicam. Une pastille plutôt
-         qu'une case à cocher : elle porte son propre libellé, donc on sait à quoi elle sert
-         sans la survoler, et elle se lit à la même distance que les autres pastilles. -->
-    <Style Selector="ToggleButton.ai-pick">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+    <!-- Boutons d'actions rapides dans la barre IA -->
+    <Style Selector="Button.ai-quick-btn">
+        <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="9,3"/>
-        <Setter Property="CornerRadius" Value="4"/>
-        <Setter Property="FontSize" Value="10"/>
-        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Padding" Value="10,5"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.ai-quick-btn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+
+    <!-- La sélection d'une scène pour l'IA sur les tuiles du multicam :
+         Agrandie (Loi de Fitts) et contrastée pour être immédiatement repérable. -->
+    <Style Selector="ToggleButton.ai-pick">
+        <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="10,5"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="ToggleButton.ai-pick:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource AppBadgeBg}"/>
-        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
     </Style>
     <Style Selector="ToggleButton.ai-pick:checked /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource AppAccentFg}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+
+    <!-- Styles d'états vides (Empty States) -->
+    <Style Selector="Border.empty-state-box">
+        <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="24,20"/>
+    </Style>
+    <Style Selector="TextBlock.empty-state-title">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.empty-state-desc">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.empty-state-action">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="14,7"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.empty-state-action:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
     </Style>
 
     <Style Selector="Button.nav">

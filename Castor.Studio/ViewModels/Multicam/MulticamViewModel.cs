@@ -241,6 +241,7 @@ public partial class MulticamViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasScenes));
         RebuildDockLayout();
         OnPropertyChanged(nameof(GridColumns));
+        NotifyAiSelectionChanged();
     }
 
     private (int Width, int Height) CurrentBaseCanvas()
@@ -271,6 +272,7 @@ public partial class MulticamViewModel : ViewModelBase
 
     private void OnTileSelectionChanged(MulticamSceneTile tile)
     {
+        NotifyAiSelectionChanged();
         if (IsAiBusy)
         {
             _aiSelectionDirty = true;
@@ -376,6 +378,38 @@ public partial class MulticamViewModel : ViewModelBase
         }
     }
 
+    public int AiSelectedScenesCount => Tiles.Count(tile => tile.IsSelected && StudioWorkspaceViewModel.HasVideoSource(tile.Scene));
+    public int AvailableVideoScenesCount => Tiles.Count(tile => StudioWorkspaceViewModel.HasVideoSource(tile.Scene));
+
+    public string AiSelectedScenesSummary => AvailableVideoScenesCount == 0
+        ? "Aucune caméra avec vidéo"
+        : $"{AiSelectedScenesCount}/{AvailableVideoScenesCount} caméra(s) analysée(s)";
+
+    [RelayCommand]
+    private void SelectAllAiScenes()
+    {
+        foreach (var tile in Tiles)
+        {
+            if (StudioWorkspaceViewModel.HasVideoSource(tile.Scene))
+                tile.IsSelected = true;
+        }
+        NotifyAiSelectionChanged();
+    }
+
+    [RelayCommand]
+    private void DeselectAllAiScenes()
+    {
+        foreach (var tile in Tiles)
+            tile.IsSelected = false;
+        NotifyAiSelectionChanged();
+    }
+
+    private void NotifyAiSelectionChanged()
+    {
+        OnPropertyChanged(nameof(AiSelectedScenesCount));
+        OnPropertyChanged(nameof(AiSelectedScenesSummary));
+    }
+
     [RelayCommand]
     private async Task SetAiAgent() => await StartAiAsync("agent");
 
@@ -400,7 +434,14 @@ public partial class MulticamViewModel : ViewModelBase
         var selectedScenes = SelectedAiScenes();
         if (selectedScenes.Count == 0)
         {
-            AiError = "Sélectionnez au moins une scène avec une source vidéo.";
+            // Auto-sélection proactive des flux vidéo disponibles pour fluidifier l'expérience utilisateur
+            SelectAllAiScenes();
+            selectedScenes = SelectedAiScenes();
+        }
+
+        if (selectedScenes.Count == 0)
+        {
+            AiError = "Aucune scène ne contient de source vidéo. Ajoutez des sources vidéo dans l'onglet Scènes.";
             AiStatusText = "IA désactivée";
             return;
         }

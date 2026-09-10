@@ -261,7 +261,14 @@
 
 				<!-- Dynamic scene list -->
 				<ScrollViewer Grid.Row="5">
-					<ItemsControl ItemsSource="{Binding Scenes}">
+					<Panel>
+						<Border IsVisible="{Binding HasNoScenes}" Margin="12,24" Classes="empty-state-box">
+							<StackPanel Spacing="10" HorizontalAlignment="Center">
+								<TextBlock Text="AUCUNE SCÈNE" Classes="empty-state-title"/>
+								<TextBlock Text="Cliquez sur + en haut pour créer votre première scène." Classes="empty-state-desc"/>
+							</StackPanel>
+						</Border>
+						<ItemsControl ItemsSource="{Binding Scenes}">
 						<ItemsControl.ItemTemplate>
 							<DataTemplate x:DataType="m:SceneItemViewModel">
 								<Grid ColumnDefinitions="Auto, Auto, *, Auto"
@@ -411,6 +418,7 @@
 							</DataTemplate>
 						</ItemsControl.ItemTemplate>
 					</ItemsControl>
+					</Panel>
 				</ScrollViewer>
 
 			</Grid>
@@ -448,21 +456,41 @@
                                    FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
                                    VerticalAlignment="Center"/>
 
-						<!-- Ouvre le dialogue « Ajouter une source » -->
 						<Button Grid.Column="1"
                                 Content="+"
                                 Command="{Binding OpenAddSourceCommand}"
                                 Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
                                 BorderThickness="0" Padding="10,4" CornerRadius="5"
                                 FontSize="16" FontWeight="Bold" Cursor="Hand"
-                                ToolTip.Tip="Ajouter une source"/>
+                                ToolTip.Tip="Ajouter une source vidéo ou audio (crée une scène automatiquement si besoin)"/>
 					</Grid>
 
 					<Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>
 
 					<!-- Dynamic source list -->
 					<ScrollViewer Grid.Row="2">
-						<ItemsControl ItemsSource="{Binding SelectedScene.Sources}">
+						<Panel>
+							<!-- Cas 1 : Aucune scène sélectionnée -->
+							<Border IsVisible="{Binding HasNoSelectedScene}" Classes="empty-state-box"
+							        VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380" Margin="10">
+								<StackPanel Spacing="8">
+									<TextBlock Text="AUCUNE SCÈNE SÉLECTIONNÉE" Classes="empty-state-title"/>
+									<TextBlock Text="Sélectionnez une scène à gauche ou cliquez sur + pour créer une source." Classes="empty-state-desc"/>
+								</StackPanel>
+							</Border>
+
+							<!-- Cas 2 : Scène sélectionnée mais sans source -->
+							<Border IsVisible="{Binding HasNoSources}" Classes="empty-state-box"
+							        VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380" Margin="10">
+								<StackPanel Spacing="10">
+									<TextBlock Text="SCÈNE SANS SOURCE" Classes="empty-state-title"/>
+									<TextBlock Text="Ajoutez votre caméra, micro ou vidéo pour donner vie à cette scène." Classes="empty-state-desc"/>
+									<Button Content="AJOUTER UNE SOURCE" Classes="empty-state-action"
+									        Command="{Binding OpenAddSourceCommand}"/>
+								</StackPanel>
+							</Border>
+
+							<ItemsControl ItemsSource="{Binding SelectedScene.Sources}">
 							<ItemsControl.ItemTemplate>
 								<DataTemplate x:DataType="m:SourceItemViewModel">
 									<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2">
@@ -508,6 +536,7 @@
 								</DataTemplate>
 							</ItemsControl.ItemTemplate>
 						</ItemsControl>
+						</Panel>
 					</ScrollViewer>
 
 					<TextBlock Grid.Row="3" Text="{Binding SourceOperationStatus}"

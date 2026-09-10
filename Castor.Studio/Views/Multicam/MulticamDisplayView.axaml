@@ -58,20 +58,30 @@
 			</Grid>
 		</Border>
 
-		<Panel Grid.Row="1">
-<!-- Grille : toutes les scènes à la même taille. -->
-<ItemsControl IsVisible="{Binding IsGridLayout}" ItemsSource="{Binding Tiles}">
-	<ItemsControl.ItemsPanel>
-		<ItemsPanelTemplate>
-			<UniformGrid Columns="{Binding GridColumns}"/>
-		</ItemsPanelTemplate>
-	</ItemsControl.ItemsPanel>
-		<ItemsControl.ItemTemplate>
-			<DataTemplate x:DataType="vm:MulticamSceneTile">
-				<mcViews:MulticamTileView/>
-			</DataTemplate>
-		</ItemsControl.ItemTemplate>
-</ItemsControl>
+			<!-- Empty State Multicam quand aucune scène n'est créée -->
+			<Border IsVisible="{Binding !HasScenes}" Classes="empty-state-box"
+			        HorizontalAlignment="Center" VerticalAlignment="Center"
+			        MaxWidth="440">
+				<StackPanel Spacing="12">
+					<TextBlock Text="AUCUNE CAMÉRA OU SCÈNE" Classes="empty-state-title"/>
+					<TextBlock Text="Créez vos scènes et ajoutez vos webcams ou flux vidéo dans l'onglet Scènes pour profiter de la réalisation multicam et de l'IA."
+					           Classes="empty-state-desc"/>
+				</StackPanel>
+			</Border>
+
+			<!-- Grille : toutes les scènes à la même taille. -->
+			<ItemsControl IsVisible="{Binding IsGridLayout}" ItemsSource="{Binding Tiles}">
+				<ItemsControl.ItemsPanel>
+					<ItemsPanelTemplate>
+						<UniformGrid Columns="{Binding GridColumns}"/>
+					</ItemsPanelTemplate>
+				</ItemsControl.ItemsPanel>
+				<ItemsControl.ItemTemplate>
+					<DataTemplate x:DataType="vm:MulticamSceneTile">
+						<mcViews:MulticamTileView/>
+					</DataTemplate>
+				</ItemsControl.ItemTemplate>
+			</ItemsControl>
 
 <!-- Spotlight : la scène à l'antenne en grand, les autres en bande.
      Elle est rendue sur une surface qui lui est propre plutôt qu'en

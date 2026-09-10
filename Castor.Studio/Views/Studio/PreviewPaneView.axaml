@@ -15,23 +15,20 @@
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch" />
 
-		<!-- Recouvre StudioPreview quand rien ne peut être affiché. StudioPreview a son
-		     propre message interne pour "pas de scène"/"moteur indisponible", mais pas pour
-		     "scène sans source vidéo" (ScenesViewModel n'a pas ce cas) : ce panneau reste
-		     nécessaire pour ce message-là, qui recouvre alors un rendu natif vide plutôt
-		     qu'absent. -->
-		<StackPanel IsVisible="{Binding ShowPreviewPlaceholder}"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Spacing="6">
-			<TextBlock Text="APERÇU"
-                       Foreground="{DynamicResource AppFg5}"
-                       FontSize="13" FontWeight="Bold" LetterSpacing="2"
-                       HorizontalAlignment="Center"/>
-			<TextBlock Text="{Binding PreviewPlaceholderText}"
-                       Foreground="{DynamicResource AppFg4}"
-                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                       MaxWidth="380" HorizontalAlignment="Center"/>
-		</StackPanel>
+		<!-- Recouvre StudioPreview quand rien ne peut être affiché -->
+		<Border IsVisible="{Binding ShowPreviewPlaceholder}"
+		        Classes="empty-state-box"
+		        HorizontalAlignment="Center" VerticalAlignment="Center"
+		        MaxWidth="420">
+			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+				<TextBlock Text="APERÇU DU STUDIO"
+                           Classes="empty-state-title"
+                           LetterSpacing="1"/>
+				<TextBlock Text="{Binding PreviewPlaceholderText}"
+                           Classes="empty-state-desc"
+                           MaxWidth="360"/>
+			</StackPanel>
+		</Border>
 	</Panel>
 
 </UserControl>

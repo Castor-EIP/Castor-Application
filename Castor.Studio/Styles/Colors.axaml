@@ -24,10 +24,10 @@
             <SolidColorBrush x:Key="AppBorder2" Color="#36364a"/>
             <SolidColorBrush x:Key="AppFg1" Color="#eaeaf0"/>
             <SolidColorBrush x:Key="AppFg2" Color="#ccccd8"/>
-            <SolidColorBrush x:Key="AppFg3" Color="#8888a0"/>
-            <SolidColorBrush x:Key="AppFg4" Color="#5c5c72"/>
-            <SolidColorBrush x:Key="AppFg5" Color="#3c3c4e"/>
-            <SolidColorBrush x:Key="AppFg6" Color="#36364a"/>
+            <SolidColorBrush x:Key="AppFg3" Color="#9c9cb4"/>
+            <SolidColorBrush x:Key="AppFg4" Color="#84849e"/>
+            <SolidColorBrush x:Key="AppFg5" Color="#666680"/>
+            <SolidColorBrush x:Key="AppFg6" Color="#4e4e64"/>
             <SolidColorBrush x:Key="AppLiveBg" Color="#0e2420"/>
             <SolidColorBrush x:Key="AppLiveBorder" Color="#142e25"/>
             <SolidColorBrush x:Key="AppStopBg" Color="#251218"/>

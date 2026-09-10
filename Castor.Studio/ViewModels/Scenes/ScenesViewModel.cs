@@ -42,6 +42,13 @@ public partial class ScenesViewModel : ViewModelBase
     [ObservableProperty] private int _baseCanvasWidth = 1920;
     [ObservableProperty] private int _baseCanvasHeight = 1080;
 
+    public bool HasScenes => Scenes.Count > 0;
+    public bool HasNoScenes => Scenes.Count == 0;
+    public bool HasSelectedScene => SelectedScene != null;
+    public bool HasNoSelectedScene => SelectedScene == null;
+    public bool HasSources => SelectedScene != null && SelectedScene.Sources.Count > 0;
+    public bool HasNoSources => SelectedScene == null || SelectedScene.Sources.Count == 0;
+
     public string PreviewPlaceholderText => !_previewRuntime.IsAvailable
         ? _previewRuntime.UnavailableMessage
         : SelectedScene == null
@@ -80,6 +87,11 @@ public partial class ScenesViewModel : ViewModelBase
         BaseCanvasHeight = baseResolution.Height;
         SelectedScene = workspace.ActiveScene;
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
+        Scenes.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasScenes));
+            OnPropertyChanged(nameof(HasNoScenes));
+        };
         if (_settingsService != null)
             _settingsService.SettingsSaved += OnSettingsSaved;
     }
@@ -101,6 +113,10 @@ public partial class ScenesViewModel : ViewModelBase
         if (oldValue != null) oldValue.IsSelected = false;
         if (newValue != null) newValue.IsSelected = true;
         OnPropertyChanged(nameof(PreviewPlaceholderText));
+        OnPropertyChanged(nameof(HasSelectedScene));
+        OnPropertyChanged(nameof(HasNoSelectedScene));
+        OnPropertyChanged(nameof(HasSources));
+        OnPropertyChanged(nameof(HasNoSources));
     }
 
     private void OnSettingsSaved(object? sender, EventArgs e)
@@ -123,25 +139,38 @@ public partial class ScenesViewModel : ViewModelBase
         SelectedScene = _workspace.ActiveScene;
     }
 
-    [RelayCommand]
-    private void CreateScene()
+    public SceneItemViewModel? CreateSceneWithDefaultName(string? defaultName = null)
     {
-        if (string.IsNullOrWhiteSpace(NewSceneName)) return;
+        var name = string.IsNullOrWhiteSpace(defaultName)
+            ? $"Scène {Scenes.Count + 1}"
+            : defaultName.Trim();
 
-        var definition = new SceneDefinition { Name = NewSceneName.Trim() };
+        var definition = new SceneDefinition { Name = name };
         var result = _sceneRuntime.CreateScene(definition.Id, definition.Name);
         if (!result.IsSuccess)
         {
             SceneIoStatus = result.Message;
-            return;
+            return null;
         }
 
         definition.Name = result.EffectiveName;
-        // Select the new scene globally so both pages and any running output stay in sync.
         var scene = _workspace.AddScene(definition);
         SelectScene(scene);
-        NewSceneName = "";
         SceneIoStatus = "";
+        return scene;
+    }
+
+    [RelayCommand]
+    private void CreateScene()
+    {
+        if (string.IsNullOrWhiteSpace(NewSceneName))
+        {
+            CreateSceneWithDefaultName();
+            return;
+        }
+
+        CreateSceneWithDefaultName(NewSceneName);
+        NewSceneName = "";
     }
 
     [RelayCommand]
@@ -356,6 +385,20 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private async Task OpenAddSource()
     {
+        if (SelectedScene == null)
+        {
+            if (Scenes.Count > 0)
+            {
+                SelectScene(Scenes[0]);
+            }
+            else
+            {
+                var created = CreateSceneWithDefaultName("Scène 1");
+                if (created == null) return;
+                SourceOperationStatus = "Scène 1 créée automatiquement. Choisissez maintenant votre source.";
+            }
+        }
+
         if (SelectedScene == null) return;
         var result = await _dialogService.ShowAsync(_dialogFactory.Create(SelectedScene));
         if (result != null) await ApplyAddSourceResultAsync(result);

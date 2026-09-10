@@ -22,18 +22,56 @@ public sealed class MulticamAiSessionTests
     }
 
     [Fact]
-    public async Task Starting_without_a_selected_scene_is_rejected()
+    public async Task Starting_without_any_video_scenes_is_rejected()
+    {
+        var client = new FakeAiClient();
+        var workspace = new StudioWorkspaceViewModel();
+        workspace.CreateScene("AudioOnly");
+        var viewModel = new MulticamViewModel(client, workspace);
+
+        await viewModel.SetAiAgentCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.IsAiEnabled);
+        Assert.Contains("source vidéo", viewModel.AiError);
+        Assert.Empty(client.StartedModes);
+    }
+
+    [Fact]
+    public async Task Starting_with_unselected_video_scenes_auto_selects_and_starts()
     {
         var client = new FakeAiClient();
         var workspace = new StudioWorkspaceViewModel();
         workspace.CreateSceneWithVideo("Plateau");
         var viewModel = new MulticamViewModel(client, workspace);
 
+        Assert.False(viewModel.Tiles.Single().IsSelected);
+
         await viewModel.SetAiAgentCommand.ExecuteAsync(null);
 
-        Assert.False(viewModel.IsAiEnabled);
-        Assert.Contains("Sélectionnez", viewModel.AiError);
-        Assert.Empty(client.StartedModes);
+        Assert.True(viewModel.IsAiEnabled);
+        Assert.True(viewModel.Tiles.Single().IsSelected);
+        Assert.Single(client.StartedModes);
+    }
+
+    [Fact]
+    public void Quick_actions_select_and_deselect_all_video_scenes()
+    {
+        var client = new FakeAiClient();
+        var workspace = new StudioWorkspaceViewModel();
+        workspace.CreateSceneWithVideo("Cam1");
+        workspace.CreateSceneWithVideo("Cam2");
+        workspace.CreateScene("Audio");
+        var viewModel = new MulticamViewModel(client, workspace);
+
+        viewModel.SelectAllAiScenesCommand.Execute(null);
+        Assert.Equal(2, viewModel.AiSelectedScenesCount);
+        Assert.True(viewModel.Tiles[0].IsSelected);
+        Assert.True(viewModel.Tiles[1].IsSelected);
+        Assert.False(viewModel.Tiles[2].IsSelected);
+
+        viewModel.DeselectAllAiScenesCommand.Execute(null);
+        Assert.Equal(0, viewModel.AiSelectedScenesCount);
+        Assert.False(viewModel.Tiles[0].IsSelected);
     }
 
     [Fact]
