@@ -273,6 +273,82 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public SourceOrderResult GetSourceOrder(Guid sceneId)
+    {
+        if (!IsAvailable) return SourceOrderResult.Unavailable(UnavailableMessageForOperation());
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceOrderResult.Unavailable(UnavailableMessageForOperation());
+            if (!_scenes.TryGetValue(sceneId, out var scene) || !_sources.TryGetValue(sceneId, out var sources))
+                return SourceOrderResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                return SourceOrderResult.Success(ReadLayerOrder(scene, sources));
+            }
+            catch (Exception exception)
+            {
+                return SourceOrderResult.Failure($"Lecture de l'ordre impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex)
+    {
+        if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+        if (layerIndex < 0) return SourceRuntimeResult.Failure("Le rang d'une source ne peut pas être négatif.");
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceRuntimeResult.Failure("Cette source n'existe pas dans LibObs.");
+            if (layerIndex >= sources.Count)
+                return SourceRuntimeResult.Failure("Ce rang dépasse le nombre de sources de la scène.");
+
+            try
+            {
+                // libobs numérote ses scene items de l'arrière-plan (0) vers le premier plan,
+                // soit l'inverse du rang manipulé par l'opérateur. Le compte suivi ici est
+                // tenu en phase avec la scène native par AddSource/RemoveSource, sous ce verrou.
+                source.Item.SetOrderPosition(sources.Count - 1 - layerIndex);
+                return SourceRuntimeResult.Success(source.Source.Name);
+            }
+            catch (Exception exception)
+            {
+                return SourceRuntimeResult.Failure($"Réordonnancement impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    // libobs énumère ses items de l'arrière-plan vers le premier plan ; on rend l'inverse, et
+    // traduit en identifiants applicatifs pour qu'aucun handle natif ne sorte du runtime.
+    private static IReadOnlyList<Guid> ReadLayerOrder(ObsScene scene, Dictionary<Guid, NativeSource> sources)
+    {
+        var sourceIdsByItemId = new Dictionary<long, Guid>(sources.Count);
+        foreach (var (sourceId, native) in sources)
+            sourceIdsByItemId[native.Item.Id] = sourceId;
+
+        var items = scene.GetItems();
+        try
+        {
+            var ordered = new List<Guid>(items.Count);
+            for (var index = items.Count - 1; index >= 0; index--)
+            {
+                if (sourceIdsByItemId.TryGetValue(items[index].Id, out var sourceId))
+                    ordered.Add(sourceId);
+            }
+
+            return ordered;
+        }
+        finally
+        {
+            // GetItems() prend une référence sur chaque item : à nous de les relâcher.
+            foreach (var item in items) item.Dispose();
+        }
+    }
+
     private void OnSettingsSaved(object? sender, EventArgs e)
     {
         var settings = _settingsService?.Load();
